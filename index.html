@@ -1,0 +1,504 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Changelog — UserEvidence</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700&family=Inter:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --purple: #7C3AED; --purple-dark: #5B21B6; --purple-light: #EDE9FE; --purple-mid: #DDD6FE;
+    --teal: #10B981; --teal-dark: #065F46; --teal-light: #D1FAE5;
+    --red: #EF4444; --red-light: #FEE2E2; --red-dark: #991B1B;
+    --amber: #F59E0B; --amber-light: #FEF3C7; --amber-dark: #92400E;
+    --blue: #3B82F6; --blue-light: #DBEAFE; --blue-dark: #1E40AF;
+    --gray-50: #F9FAFB; --gray-100: #F3F4F6; --gray-200: #E5E7EB;
+    --gray-400: #9CA3AF; --gray-500: #6B7280; --gray-700: #374151; --gray-900: #111827;
+    --white: #FFFFFF;
+  }
+  html { scroll-behavior: smooth; }
+  body { font-family: 'Sora', sans-serif; background: var(--white); color: var(--gray-900); min-height: 100vh; }
+
+  .banner { background: var(--teal); color: white; text-align: center; padding: 9px 16px; font-size: 13px; font-weight: 500; }
+  .banner a { color: white; text-decoration: underline; text-underline-offset: 2px; }
+
+  .nav { position: sticky; top: 0; z-index: 100; background: rgba(255,255,255,0.96); backdrop-filter: blur(8px); border-bottom: 1px solid var(--gray-200); display: flex; align-items: center; justify-content: space-between; padding: 0 40px; height: 60px; }
+  .nav-logo { display: flex; align-items: center; gap: 10px; font-size: 17px; font-weight: 700; color: var(--gray-900); text-decoration: none; }
+  .nav-logo-mark { width: 30px; height: 30px; background: var(--purple); border-radius: 8px; display: flex; align-items: center; justify-content: center; }
+  .nav-logo-mark svg { width: 17px; height: 17px; }
+  .nav-pill { display: flex; align-items: center; gap: 6px; background: var(--purple-light); color: var(--purple); border-radius: 100px; padding: 4px 12px; font-size: 12px; font-weight: 600; }
+  .nav-pill .dot { width: 6px; height: 6px; background: var(--purple); border-radius: 50%; }
+
+  .btn { font-family: 'Sora', sans-serif; cursor: pointer; border-radius: 8px; font-weight: 600; font-size: 13px; transition: all 0.15s; }
+  .btn-ghost { background: transparent; border: 1.5px solid var(--gray-200); color: var(--gray-700); padding: 7px 16px; }
+  .btn-ghost:hover { border-color: var(--purple); color: var(--purple); }
+  .btn-primary { background: var(--purple); border: none; color: white; padding: 8px 18px; }
+  .btn-primary:hover { background: var(--purple-dark); }
+  .btn-success { background: var(--teal); border: none; color: white; padding: 7px 16px; font-size: 13px; }
+  .btn-success:hover { background: var(--teal-dark); }
+  .btn-danger { background: var(--red-light); border: 1.5px solid #FECACA; color: var(--red-dark); padding: 5px 14px; font-size: 12px; }
+  .btn-danger:hover { background: #FECACA; }
+
+  /* ADMIN BAR */
+  .admin-topbar { background: var(--purple); color: white; display: flex; align-items: center; justify-content: space-between; padding: 10px 40px; font-size: 13px; font-weight: 500; gap: 12px; flex-wrap: wrap; }
+  .admin-topbar-left { display: flex; align-items: center; gap: 16px; }
+  .admin-topbar-actions { display: flex; gap: 8px; }
+  .btn-w { font-family: 'Sora', sans-serif; font-weight: 600; font-size: 12px; cursor: pointer; border-radius: 6px; padding: 6px 14px; transition: all 0.15s; }
+  .btn-w-outline { background: transparent; border: 1.5px solid rgba(255,255,255,0.4); color: white; }
+  .btn-w-outline:hover { background: rgba(255,255,255,0.15); }
+  .btn-w-solid { background: white; border: none; color: var(--purple); }
+  .btn-w-solid:hover { background: var(--purple-light); }
+  .draft-badge { background: rgba(255,255,255,0.2); border-radius: 100px; padding: 3px 10px; font-size: 12px; font-weight: 700; }
+
+  /* DRAFTS PANEL */
+  .drafts-panel { background: #FFFBEB; border-bottom: 1px solid #FDE68A; padding: 0; overflow: hidden; transition: max-height 0.3s ease; }
+  .drafts-panel-inner { max-width: 960px; margin: 0 auto; padding: 24px 40px; }
+  .drafts-panel-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
+  .drafts-panel-title { font-size: 15px; font-weight: 700; color: var(--amber-dark); display: flex; align-items: center; gap: 8px; }
+  .drafts-panel-title svg { flex-shrink: 0; }
+  .drafts-panel-sub { font-size: 13px; color: #92400E; font-family: 'Inter', sans-serif; margin-top: 2px; }
+
+  .draft-card { background: white; border: 1.5px solid #FDE68A; border-radius: 12px; padding: 18px 20px; margin-bottom: 12px; }
+  .draft-card:last-child { margin-bottom: 0; }
+  .draft-card-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 10px; }
+  .draft-card-left { flex: 1; min-width: 0; }
+  .draft-card-title { font-size: 15px; font-weight: 700; color: var(--gray-900); margin-bottom: 4px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .draft-card-meta { font-size: 12px; color: var(--gray-400); font-family: 'Inter', sans-serif; display: flex; align-items: center; gap: 10px; }
+  .draft-card-meta a { color: var(--blue); text-decoration: none; }
+  .draft-card-meta a:hover { text-decoration: underline; }
+  .draft-card-desc { font-size: 14px; color: var(--gray-500); line-height: 1.65; font-family: 'Inter', sans-serif; margin-bottom: 14px; }
+  .draft-card-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+  .draft-status { display: inline-flex; align-items: center; gap: 4px; background: var(--amber-light); color: var(--amber-dark); border-radius: 100px; padding: 2px 8px; font-size: 11px; font-weight: 700; }
+
+  /* HERO */
+  .hero { max-width: 640px; margin: 0 auto; padding: 64px 24px 40px; text-align: center; }
+  .hero-badge { display: inline-flex; align-items: center; gap: 6px; background: var(--purple-light); color: var(--purple); border-radius: 100px; padding: 5px 14px; font-size: 12px; font-weight: 600; margin-bottom: 20px; letter-spacing: 0.04em; text-transform: uppercase; }
+  .hero h1 { font-size: 44px; font-weight: 700; line-height: 1.12; margin-bottom: 14px; }
+  .hero h1 span { color: var(--purple); }
+  .hero p { font-size: 16px; color: var(--gray-500); line-height: 1.65; font-family: 'Inter', sans-serif; }
+
+  /* FILTERS */
+  .filters { display: flex; gap: 8px; flex-wrap: wrap; padding: 28px 40px 24px; max-width: 960px; margin: 0 auto; }
+  .chip { font-family: 'Sora', sans-serif; padding: 6px 16px; border-radius: 100px; font-size: 13px; font-weight: 500; border: 1.5px solid var(--gray-200); background: transparent; color: var(--gray-500); cursor: pointer; transition: all 0.15s; }
+  .chip:hover { border-color: var(--purple); color: var(--purple); }
+  .chip.active { background: var(--purple); color: white; border-color: var(--purple); }
+  .chip[data-tag="Improvement"].active { background: var(--teal); border-color: var(--teal); }
+  .chip[data-tag="Bug Fix"].active { background: var(--red); border-color: var(--red); }
+  .chip[data-tag="Integration"].active { background: var(--amber); border-color: var(--amber); }
+  .chip[data-tag="Announcement"].active { background: var(--blue); border-color: var(--blue); }
+
+  /* TIMELINE */
+  .timeline { max-width: 960px; margin: 0 auto; padding: 0 40px 100px; }
+  .year-block { margin-bottom: 52px; }
+  .year-heading { display: flex; align-items: center; gap: 14px; font-size: 12px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--gray-400); margin-bottom: 24px; }
+  .year-heading::after { content: ''; flex: 1; height: 1px; background: var(--gray-200); }
+  .entry { display: grid; grid-template-columns: 130px 1fr; gap: 28px; margin-bottom: 24px; }
+  .entry-meta { padding-top: 6px; text-align: right; }
+  .entry-date { font-size: 13px; color: var(--gray-400); font-weight: 500; }
+  .card { background: var(--white); border: 1.5px solid var(--gray-200); border-radius: 14px; overflow: hidden; transition: border-color 0.2s, box-shadow 0.2s; }
+  .card:hover { border-color: var(--purple-mid); box-shadow: 0 2px 20px rgba(124,58,237,0.07); }
+  .card-media img, .card-media video { width: 100%; display: block; max-height: 360px; object-fit: cover; }
+  .card-body { padding: 20px 22px 22px; }
+  .card-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 10px; }
+  .card-title { font-size: 17px; font-weight: 700; line-height: 1.3; color: var(--gray-900); }
+  .tag-pill { display: inline-flex; align-items: center; padding: 3px 10px; border-radius: 100px; font-size: 11px; font-weight: 700; letter-spacing: 0.04em; white-space: nowrap; flex-shrink: 0; }
+  .card-desc { font-size: 14px; color: var(--gray-500); line-height: 1.7; font-family: 'Inter', sans-serif; }
+  .card-actions { display: flex; gap: 8px; margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--gray-100); }
+
+  /* MODALS */
+  .overlay { position: fixed; inset: 0; z-index: 300; background: rgba(0,0,0,0.4); display: flex; align-items: center; justify-content: center; padding: 20px; backdrop-filter: blur(2px); }
+  .modal { background: white; border-radius: 16px; width: 100%; max-width: 560px; max-height: 92vh; overflow-y: auto; box-shadow: 0 20px 60px rgba(0,0,0,0.15); }
+  .modal-head { display: flex; align-items: center; justify-content: space-between; padding: 22px 24px 0; position: sticky; top: 0; background: white; z-index: 1; border-bottom: 1px solid transparent; }
+  .modal-head h2 { font-size: 18px; font-weight: 700; }
+  .modal-close { background: none; border: none; cursor: pointer; font-size: 18px; color: var(--gray-400); line-height: 1; padding: 4px 6px; border-radius: 6px; }
+  .modal-close:hover { background: var(--gray-100); }
+  .modal-body { padding: 18px 24px 24px; }
+  .field { margin-bottom: 16px; }
+  .field label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 6px; color: var(--gray-700); }
+  .field input, .field textarea, .field select { width: 100%; padding: 9px 12px; border: 1.5px solid var(--gray-200); border-radius: 8px; font-size: 14px; font-family: 'Sora', sans-serif; color: var(--gray-900); background: white; transition: border-color 0.15s; }
+  .field input:focus, .field textarea:focus, .field select:focus { outline: none; border-color: var(--purple); }
+  .field textarea { min-height: 96px; resize: vertical; line-height: 1.55; }
+  .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .upload-zone { border: 2px dashed var(--gray-200); border-radius: 10px; padding: 28px; text-align: center; cursor: pointer; transition: border-color 0.15s; position: relative; background: var(--gray-50); }
+  .upload-zone:hover { border-color: var(--purple); }
+  .upload-zone input { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
+  .upload-zone-icon { font-size: 26px; margin-bottom: 8px; }
+  .upload-zone p { font-size: 13px; color: var(--gray-500); font-family: 'Inter', sans-serif; }
+  .upload-zone p strong { color: var(--purple); font-family: 'Sora', sans-serif; }
+  .preview-wrap { margin-top: 10px; border-radius: 8px; overflow: hidden; border: 1px solid var(--gray-200); }
+  .preview-wrap img, .preview-wrap video { width: 100%; max-height: 200px; object-fit: cover; display: block; }
+  .modal-foot { display: flex; gap: 10px; justify-content: flex-end; padding-top: 6px; border-top: 1px solid var(--gray-100); margin-top: 6px; }
+  .btn-cancel { font-family: 'Sora', sans-serif; background: transparent; border: 1.5px solid var(--gray-200); border-radius: 8px; padding: 8px 18px; font-size: 13px; font-weight: 500; cursor: pointer; color: var(--gray-700); }
+  .error-msg { font-size: 13px; color: var(--red-dark); background: var(--red-light); border-radius: 7px; padding: 9px 12px; margin-top: 10px; display: none; }
+
+  /* MISC */
+  .empty { text-align: center; padding: 64px 20px; color: var(--gray-500); }
+  .empty-icon { font-size: 38px; margin-bottom: 14px; }
+  .empty h3 { font-size: 17px; font-weight: 700; color: var(--gray-700); margin-bottom: 6px; }
+  .empty p { font-size: 14px; font-family: 'Inter', sans-serif; }
+  .loading { text-align: center; padding: 60px; color: var(--gray-400); font-size: 14px; }
+  .spinner { width: 28px; height: 28px; border: 2.5px solid var(--gray-200); border-top-color: var(--purple); border-radius: 50%; animation: spin 0.7s linear infinite; margin: 0 auto 12px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .toast { position: fixed; bottom: 24px; right: 24px; z-index: 999; background: var(--gray-900); color: white; padding: 12px 18px; border-radius: 10px; font-size: 13px; font-weight: 500; opacity: 0; transform: translateY(8px); transition: all 0.25s; pointer-events: none; }
+  .toast.show { opacity: 1; transform: translateY(0); }
+  .toast.success { background: #065F46; }
+  .toast.error { background: var(--red-dark); }
+
+  @media (max-width: 700px) {
+    .nav { padding: 0 16px; } .hero { padding: 40px 16px 28px; } .hero h1 { font-size: 30px; }
+    .filters { padding: 20px 16px 16px; } .timeline { padding: 0 16px 80px; }
+    .entry { grid-template-columns: 1fr; gap: 6px; } .entry-meta { text-align: left; padding-top: 0; }
+    .admin-topbar { padding: 10px 16px; } .drafts-panel-inner { padding: 20px 16px; }
+    .field-row { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<script>
+  const CONFIG = {
+    supabaseUrl: 'https://kuquzlspmzkduftnwbwf.supabase.co',
+    supabaseKey: 'sb_publishable_ktnuRH0RG0KTEqR78HCKJA_DazT0eEz',
+    adminPass:   'ue-admin-2025',
+  };
+</script>
+
+<div class="toast" id="toast"></div>
+<div id="root"></div>
+
+<script>
+let db, IS_ADMIN = false, entries = [], drafts = [], filtered = [], activeTag = 'All', editingId = null, pendingFile = null;
+const ADMIN_REQUESTED = new URLSearchParams(window.location.search).get('admin') === 'true';
+
+function initDB() { return supabase.createClient(CONFIG.supabaseUrl, CONFIG.supabaseKey); }
+
+const TAGS = { 'New Feature':{bg:'#EDE9FE',fg:'#5B21B6'}, 'Improvement':{bg:'#D1FAE5',fg:'#065F46'}, 'Bug Fix':{bg:'#FEE2E2',fg:'#991B1B'}, 'Integration':{bg:'#FEF3C7',fg:'#92400E'}, 'Announcement':{bg:'#DBEAFE',fg:'#1E40AF'} };
+function tagStyle(t) { const s=TAGS[t]||{bg:'#F3F4F6',fg:'#374151'}; return `background:${s.bg};color:${s.fg};`; }
+function fmtDate(str) { return new Date(str+'T00:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}); }
+function getYear(str) { return str?str.slice(0,4):''; }
+
+// ── DATA ──
+async function fetchEntries() {
+  const { data, error } = await db.from('changelog').select('*').eq('status','published').order('date',{ascending:false});
+  if (error) { showToast('Failed to load','error'); return []; }
+  return data || [];
+}
+async function fetchDrafts() {
+  const { data, error } = await db.from('changelog').select('*').eq('status','draft').order('created_at',{ascending:false});
+  if (error) return [];
+  return data || [];
+}
+async function publishDraft(id) {
+  const { error } = await db.from('changelog').update({ status: 'published' }).eq('id', id);
+  if (error) { showToast('Publish failed: '+error.message,'error'); return false; }
+  return true;
+}
+async function discardDraft(id) {
+  const { error } = await db.from('changelog').delete().eq('id', id);
+  if (error) { showToast('Discard failed','error'); return false; }
+  return true;
+}
+async function upsertEntry(p) {
+  const { error } = p.id ? await db.from('changelog').update(p).eq('id',p.id) : await db.from('changelog').insert({...p, status:'published'});
+  if (error) { showToast('Save failed: '+error.message,'error'); return false; }
+  return true;
+}
+async function deleteEntryDB(id) {
+  const { error } = await db.from('changelog').delete().eq('id',id);
+  if (error) { showToast('Delete failed','error'); return false; }
+  return true;
+}
+async function uploadMedia(file) {
+  const path=`media/${Date.now()}.${file.name.split('.').pop()}`;
+  const { error } = await db.storage.from('changelog-media').upload(path, file);
+  if (error) { showToast('Upload failed: '+error.message,'error'); return {url:null,type:null}; }
+  const { data } = db.storage.from('changelog-media').getPublicUrl(path);
+  return { url: data.publicUrl, type: file.type };
+}
+
+// ── RENDER DRAFTS PANEL ──
+function renderDraftsPanel() {
+  const panel = document.getElementById('drafts-panel');
+  if (!panel) return;
+
+  if (!IS_ADMIN || drafts.length === 0) {
+    panel.style.display = 'none';
+    return;
+  }
+
+  panel.style.display = 'block';
+  panel.innerHTML = `<div class="drafts-panel-inner">
+    <div class="drafts-panel-header">
+      <div>
+        <div class="drafts-panel-title">
+          <svg width="16" height="16" fill="none" viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" stroke="#92400E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          ${drafts.length} draft${drafts.length > 1 ? 's' : ''} from Linear — ready to review
+        </div>
+        <div class="drafts-panel-sub">Claude rewrote these from your Linear tickets. Review, edit if needed, then publish.</div>
+      </div>
+    </div>
+    ${drafts.map(d => `
+      <div class="draft-card" id="draft-${d.id}">
+        <div class="draft-card-top">
+          <div class="draft-card-left">
+            <div class="draft-card-title">
+              ${d.title}
+              <span class="tag-pill" style="${tagStyle(d.tag)}">${d.tag}</span>
+              <span class="draft-status">Draft</span>
+            </div>
+            <div class="draft-card-meta">
+              <span>${fmtDate(d.date)}</span>
+              ${d.linear_url ? `<a href="${d.linear_url}" target="_blank">View in Linear →</a>` : ''}
+            </div>
+          </div>
+        </div>
+        <div class="draft-card-desc">${d.description}</div>
+        <div class="draft-card-actions">
+          <button class="btn btn-success" onclick="doPublishDraft(${d.id})" style="font-size:12px;padding:6px 16px;">
+            Publish
+          </button>
+          <button class="btn btn-ghost" onclick="openEditDraft(${d.id})" style="font-size:12px;padding:6px 14px;">
+            Edit before publishing
+          </button>
+          <button class="btn btn-danger" onclick="doDiscardDraft(${d.id})">
+            Discard
+          </button>
+        </div>
+      </div>`).join('')}
+  </div>`;
+}
+
+async function doPublishDraft(id) {
+  const ok = await publishDraft(id);
+  if (!ok) return;
+  drafts = drafts.filter(d => d.id !== id);
+  entries = await fetchEntries();
+  applyFilter(activeTag);
+  renderDraftsPanel();
+  renderTimeline();
+  showToast('Published!', 'success');
+}
+
+async function doDiscardDraft(id) {
+  if (!confirm('Discard this draft? It will be deleted.')) return;
+  const ok = await discardDraft(id);
+  if (!ok) return;
+  drafts = drafts.filter(d => d.id !== id);
+  renderDraftsPanel();
+  showToast('Draft discarded');
+}
+
+function openEditDraft(id) {
+  const d = drafts.find(x => x.id === id);
+  if (!d) return;
+  // Open the edit modal with draft data, on save it publishes
+  editingId = id;
+  pendingFile = null;
+  document.getElementById('modal-title-text').textContent = 'Edit & Publish Draft';
+  document.getElementById('f-title').value = d.title;
+  document.getElementById('f-tag').value = d.tag;
+  document.getElementById('f-date').value = d.date;
+  document.getElementById('f-desc').value = d.description;
+  document.getElementById('preview-wrap').style.display = 'none';
+  document.getElementById('preview-wrap').innerHTML = '';
+  document.getElementById('save-btn').textContent = 'Publish Entry';
+  document.getElementById('overlay-entry').style.display = 'flex';
+}
+
+// ── RENDER TIMELINE ──
+function applyFilter(tag) {
+  activeTag = tag;
+  filtered = tag === 'All' ? [...entries] : entries.filter(e => e.tag === tag);
+  filtered.sort((a,b) => (b.date||'').localeCompare(a.date||''));
+}
+
+function renderEntry(e) {
+  const media = e.media_url ? `<div class="card-media">${(e.media_type||'').startsWith('video') ? `<video src="${e.media_url}" controls muted playsinline></video>` : `<img src="${e.media_url}" alt="${e.title}" loading="lazy">`}</div>` : '';
+  const actions = IS_ADMIN ? `<div class="card-actions"><button class="btn btn-ghost" style="font-size:12px;padding:5px 14px;" onclick="openEdit(${e.id})">Edit</button><button class="btn btn-danger" onclick="confirmDelete(${e.id})">Delete</button></div>` : '';
+  return `<div class="entry"><div class="entry-meta"><div class="entry-date">${fmtDate(e.date)}</div></div><div class="card">${media}<div class="card-body"><div class="card-top"><div class="card-title">${e.title}</div><span class="tag-pill" style="${tagStyle(e.tag)}">${e.tag}</span></div><div class="card-desc">${e.description||''}</div>${actions}</div></div></div>`;
+}
+
+function renderTimeline() {
+  const tl = document.getElementById('timeline'); if (!tl) return;
+  if (!filtered.length) { tl.innerHTML = `<div class="empty"><div class="empty-icon">📭</div><h3>No entries yet</h3><p>${IS_ADMIN ? 'Publish a draft above or click "+ New Entry".' : 'Check back soon for updates.'}</p></div>`; return; }
+  const g = {}; filtered.forEach(e => { const y=getYear(e.date); if(!g[y])g[y]=[]; g[y].push(e); });
+  tl.innerHTML = Object.keys(g).sort((a,b)=>b-a).map(y => `<div class="year-block"><div class="year-heading">${y}</div>${g[y].map(renderEntry).join('')}</div>`).join('');
+}
+
+// ── ADMIN BAR ──
+function renderAdminBar() {
+  const ab = document.getElementById('admin-bar'); if (!ab) return;
+  ab.style.display = IS_ADMIN ? 'block' : 'none';
+  if (IS_ADMIN) ab.innerHTML = `<div class="admin-topbar">
+    <div class="admin-topbar-left">
+      <span>Admin mode</span>
+      ${drafts.length > 0 ? `<span class="draft-badge">⬆ ${drafts.length} draft${drafts.length>1?'s':''} waiting</span>` : '<span style="opacity:0.6;font-size:12px;">No pending drafts</span>'}
+    </div>
+    <div class="admin-topbar-actions">
+      <button class="btn-w btn-w-solid" onclick="openAdd()">+ New Entry</button>
+      <button class="btn-w btn-w-outline" onclick="doLogout()">Log Out</button>
+    </div>
+  </div>`;
+}
+
+async function fullRender() {
+  renderAdminBar();
+  renderDraftsPanel();
+  applyFilter(activeTag);
+  renderTimeline();
+}
+
+// ── AUTH ──
+function showAdminLogin() { document.getElementById('overlay-login').style.display='flex'; document.getElementById('login-pass').value=''; document.getElementById('login-err').style.display='none'; setTimeout(()=>document.getElementById('login-pass').focus(),100); }
+function hideAdminLogin() { document.getElementById('overlay-login').style.display='none'; }
+async function doLogin() {
+  if (document.getElementById('login-pass').value === CONFIG.adminPass) {
+    IS_ADMIN = true;
+    hideAdminLogin();
+    drafts = await fetchDrafts();
+    fullRender();
+    showToast('Welcome, admin', 'success');
+  } else {
+    document.getElementById('login-err').style.display = 'block';
+  }
+}
+function doLogout() { IS_ADMIN=false; drafts=[]; window.history.replaceState({},'',window.location.pathname); fullRender(); showToast('Signed out'); }
+
+// ── ADD / EDIT ──
+function openAdd() {
+  editingId=null; pendingFile=null;
+  document.getElementById('modal-title-text').textContent='New Entry';
+  document.getElementById('f-title').value=''; document.getElementById('f-tag').value='New Feature';
+  document.getElementById('f-date').value=new Date().toISOString().slice(0,10);
+  document.getElementById('f-desc').value=''; document.getElementById('preview-wrap').style.display='none';
+  document.getElementById('preview-wrap').innerHTML='';
+  document.getElementById('save-btn').textContent='Save Entry';
+  document.getElementById('overlay-entry').style.display='flex';
+}
+function openEdit(id) {
+  const e=entries.find(x=>x.id===id); if(!e) return;
+  editingId=id; pendingFile=null;
+  document.getElementById('modal-title-text').textContent='Edit Entry';
+  document.getElementById('f-title').value=e.title; document.getElementById('f-tag').value=e.tag;
+  document.getElementById('f-date').value=e.date; document.getElementById('f-desc').value=e.description;
+  const pw=document.getElementById('preview-wrap');
+  if (e.media_url) { pw.style.display='block'; pw.innerHTML=(e.media_type||'').startsWith('video') ? `<video src="${e.media_url}" controls style="width:100%;max-height:180px;object-fit:cover;display:block;"></video>` : `<img src="${e.media_url}" style="width:100%;max-height:180px;object-fit:cover;display:block;">`; }
+  else { pw.style.display='none'; pw.innerHTML=''; }
+  document.getElementById('save-btn').textContent='Save Entry';
+  document.getElementById('overlay-entry').style.display='flex';
+}
+function closeEntryModal() { document.getElementById('overlay-entry').style.display='none'; }
+function handleFileSelect(input) {
+  const file=input.files[0]; if(!file) return; pendingFile=file;
+  const r=new FileReader(); r.onload=ev=>{ const pw=document.getElementById('preview-wrap'); pw.style.display='block'; pw.innerHTML=file.type.startsWith('video') ? `<video src="${ev.target.result}" controls style="width:100%;max-height:180px;object-fit:cover;display:block;"></video>` : `<img src="${ev.target.result}" style="width:100%;max-height:180px;object-fit:cover;display:block;">`; }; r.readAsDataURL(file);
+}
+async function saveEntry() {
+  const title=document.getElementById('f-title').value.trim(), tag=document.getElementById('f-tag').value, date=document.getElementById('f-date').value, description=document.getElementById('f-desc').value.trim();
+  if (!title||!date||!description) { showToast('Please fill in all fields','error'); return; }
+  const btn=document.getElementById('save-btn'); btn.disabled=true; btn.textContent='Saving…';
+  let media_url=null, media_type=null;
+  if (editingId) { const ex=[...entries,...drafts].find(x=>x.id===editingId); media_url=ex?.media_url; media_type=ex?.media_type; }
+  if (pendingFile) { const res=await uploadMedia(pendingFile); if(res.url){media_url=res.url;media_type=res.type;} }
+  // If editing a draft, publish it directly
+  const isDraft = editingId && drafts.find(x=>x.id===editingId);
+  const payload = { title, tag, date, description, media_url, media_type, status: 'published' };
+  if (editingId) payload.id = editingId;
+  const ok = await upsertEntry(payload); btn.disabled=false; btn.textContent='Save Entry'; if(!ok) return;
+  closeEntryModal();
+  if (isDraft) drafts = drafts.filter(d => d.id !== editingId);
+  entries = await fetchEntries(); applyFilter(activeTag); renderDraftsPanel(); renderAdminBar(); renderTimeline();
+  showToast(isDraft ? 'Draft published!' : (editingId?'Entry updated':'Entry published'), 'success');
+}
+async function confirmDelete(id) {
+  if(!confirm('Delete this entry?')) return;
+  if(await deleteEntryDB(id)) { entries=entries.filter(e=>e.id!==id); applyFilter(activeTag); renderTimeline(); showToast('Entry deleted'); }
+}
+
+function setFilter(tag,btn) { activeTag=tag; document.querySelectorAll('.chip').forEach(c=>c.classList.remove('active')); btn.classList.add('active'); applyFilter(tag); renderTimeline(); }
+
+let toastTimer;
+function showToast(msg,type='') { const t=document.getElementById('toast'); t.textContent=msg; t.className='toast show'+(type?' '+type:''); clearTimeout(toastTimer); toastTimer=setTimeout(()=>t.classList.remove('show'),2800); }
+
+// ── SCAFFOLD ──
+function buildApp() {
+  document.getElementById('root').innerHTML = `
+    <div class="banner">Stay up to date — <a href="https://userevidence.com" target="_blank">userevidence.com →</a></div>
+    <nav class="nav">
+      <a class="nav-logo" href="https://userevidence.com" target="_blank">
+        <div class="nav-logo-mark"><svg viewBox="0 0 18 18" fill="none"><path d="M9 2C5.134 2 2 5.134 2 9s3.134 7 7 7 7-3.134 7-7-3.134-7-7-7zm0 3.5a1.5 1.5 0 110 3 1.5 1.5 0 010-3zm0 8c-1.857 0-3.5-.9-4.5-2.286C4.5 9.75 6.75 9 9 9s4.5.75 4.5 2.214C12.5 12.6 10.857 13.5 9 13.5z" fill="white"/></svg></div>
+        UserEvidence
+      </a>
+      <div class="nav-pill"><div class="dot"></div> Changelog</div>
+    </nav>
+    <div id="admin-bar" style="display:none;"></div>
+    <div id="drafts-panel" class="drafts-panel" style="display:none;"></div>
+    <div class="hero">
+      <div class="hero-badge"><svg width="11" height="11" viewBox="0 0 12 12" fill="none"><circle cx="6" cy="6" r="4.5" stroke="currentColor" stroke-width="1.5"/><path d="M6 3.5v3M6 8h.01" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg> Product Updates</div>
+      <h1>What's new at<br><span>UserEvidence</span></h1>
+      <p>Every feature, fix, and improvement — so you always know what's shipping.</p>
+    </div>
+    <div class="filters">
+      <button class="chip active" data-tag="All" onclick="setFilter('All',this)">All</button>
+      <button class="chip" data-tag="New Feature" onclick="setFilter('New Feature',this)">New Feature</button>
+      <button class="chip" data-tag="Improvement" onclick="setFilter('Improvement',this)">Improvement</button>
+      <button class="chip" data-tag="Bug Fix" onclick="setFilter('Bug Fix',this)">Bug Fix</button>
+      <button class="chip" data-tag="Integration" onclick="setFilter('Integration',this)">Integration</button>
+      <button class="chip" data-tag="Announcement" onclick="setFilter('Announcement',this)">Announcement</button>
+    </div>
+    <div class="timeline" id="timeline"><div class="loading"><div class="spinner"></div>Loading updates…</div></div>
+
+    <!-- ADMIN LOGIN -->
+    <div class="overlay" id="overlay-login" style="display:none;" onclick="if(event.target===this)hideAdminLogin()">
+      <div class="modal" style="max-width:380px;">
+        <div class="modal-head"><div></div><button class="modal-close" onclick="hideAdminLogin()">✕</button></div>
+        <div class="modal-body" style="padding-top:8px;text-align:center;">
+          <div style="width:50px;height:50px;background:var(--purple-light);border-radius:14px;display:flex;align-items:center;justify-content:center;margin:0 auto 16px;">
+            <svg width="22" height="22" fill="none" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2" stroke="#7C3AED" stroke-width="1.8"/><path d="M7 11V7a5 5 0 0110 0v4" stroke="#7C3AED" stroke-width="1.8" stroke-linecap="round"/></svg>
+          </div>
+          <h3 style="font-size:20px;font-weight:700;margin-bottom:6px;">Admin sign in</h3>
+          <p style="font-size:14px;color:var(--gray-500);font-family:'Inter',sans-serif;margin-bottom:20px;">Enter your password to manage entries.</p>
+          <div class="field" style="text-align:left;"><label>Password</label><input type="password" id="login-pass" placeholder="Admin password" onkeydown="if(event.key==='Enter')doLogin()"></div>
+          <div class="error-msg" id="login-err">Incorrect password. Try again.</div>
+          <button class="btn btn-primary" style="width:100%;padding:11px;margin-top:12px;font-size:14px;" onclick="doLogin()">Sign In</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ADD/EDIT -->
+    <div class="overlay" id="overlay-entry" style="display:none;" onclick="if(event.target===this)closeEntryModal()">
+      <div class="modal">
+        <div class="modal-head"><h2 id="modal-title-text">New Entry</h2><button class="modal-close" onclick="closeEntryModal()">✕</button></div>
+        <div class="modal-body">
+          <div class="field"><label>Title</label><input id="f-title" placeholder="e.g. Reference Management Kanban View"></div>
+          <div class="field-row">
+            <div class="field"><label>Tag</label><select id="f-tag"><option>New Feature</option><option>Improvement</option><option>Bug Fix</option><option>Integration</option><option>Announcement</option></select></div>
+            <div class="field"><label>Date</label><input type="date" id="f-date"></div>
+          </div>
+          <div class="field"><label>Description</label><textarea id="f-desc" placeholder="What shipped? What does it do? Why does it matter?"></textarea></div>
+          <div class="field">
+            <label>Media (image or video)</label>
+            <div class="upload-zone"><input type="file" accept="image/*,video/*" onchange="handleFileSelect(this)"><div class="upload-zone-icon">🖼️</div><p><strong>Click to upload</strong> or drag and drop<br>PNG, JPG, GIF, MP4, WebM</p></div>
+            <div class="preview-wrap" id="preview-wrap" style="display:none;"></div>
+          </div>
+          <div class="modal-foot"><button class="btn-cancel" onclick="closeEntryModal()">Cancel</button><button class="btn btn-primary" id="save-btn" onclick="saveEntry()">Save Entry</button></div>
+        </div>
+      </div>
+    </div>`;
+}
+
+async function boot() {
+  db = initDB();
+  buildApp();
+  entries = await fetchEntries();
+  applyFilter('All');
+  renderTimeline();
+  if (ADMIN_REQUESTED) showAdminLogin();
+}
+
+boot();
+</script>
+</body>
+</html>
