@@ -152,6 +152,7 @@ const TAGS = { 'New Feature':{bg:'#EDE9FE',fg:'#5B21B6'}, 'Improvement':{bg:'#D1
 function tagStyle(t) { const s=TAGS[t]||{bg:'#F3F4F6',fg:'#374151'}; return `background:${s.bg};color:${s.fg};`; }
 function fmtDate(str) { return new Date(str+'T00:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}); }
 function getYear(str) { return str?str.slice(0,4):''; }
+
 async function fetchEntries() {
   const { data, error } = await db.from('changelog').select('*').eq('status','published').order('date',{ascending:false});
   if (error) { showToast('Failed to load','error'); return []; }
@@ -173,8 +174,14 @@ async function discardDraft(id) {
   return true;
 }
 async function upsertEntry(p) {
-  const { error } = p.id ? await db.from('changelog').update(p).eq('id',p.id) : await db.from('changelog').insert({...p, status:'published'});
-  if (error) { showToast('Save failed: '+error.message,'error'); return false; }
+  if (p.id) {
+    const { id, ...rest } = p;
+    const { error } = await db.from('changelog').update(rest).eq('id', id);
+    if (error) { showToast('Save failed: '+error.message,'error'); return false; }
+  } else {
+    const { error } = await db.from('changelog').insert({...p, status:'published'});
+    if (error) { showToast('Save failed: '+error.message,'error'); return false; }
+  }
   return true;
 }
 async function deleteEntryDB(id) {
@@ -189,6 +196,7 @@ async function uploadMedia(file) {
   const { data } = db.storage.from('changelog-media').getPublicUrl(path);
   return { url: data.publicUrl, type: file.type };
 }
+
 function renderDraftsPanel() {
   const panel = document.getElementById('drafts-panel'); if (!panel) return;
   if (!IS_ADMIN || drafts.length === 0) { panel.style.display = 'none'; return; }
