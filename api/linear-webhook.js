@@ -79,7 +79,12 @@ Reply with only valid JSON. No markdown, no code blocks.`
 
 async function rewriteForCustomers(title, description, fallbackTag) {
   const cleanedTitle = cleanTitle(title);
-  const result = await analyzeTicket(title, description);
+  let result = null;
+  try {
+    result = await analyzeTicket(title, description);
+  } catch (err) {
+    console.error('AI rewrite failed, using fallback:', err.message);
+  }
   return {
     title: cleanedTitle,
     description: result?.description || description || '',
