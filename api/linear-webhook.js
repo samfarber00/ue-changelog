@@ -141,9 +141,14 @@ module.exports = async function handler(req, res) {
       rewriteForCustomers(issue.title, issue.description, fallbackTag),
       extractAndUploadImage(issue.description, issue.id, db),
     ]);
+    function cleanName(n) {
+      if (!n) return null;
+      if (n.includes('@')) n = n.split('@')[0].replace(/[._-]/g, ' ');
+      return n.replace(/\b\w/g, c => c.toUpperCase()).trim();
+    }
     const people = [];
-    if (issue.assignee?.name) people.push({ name: issue.assignee.name, avatar: issue.assignee.avatarUrl || null });
-    if (issue.creator?.name && issue.creator.name !== issue.assignee?.name) people.push({ name: issue.creator.name, avatar: issue.creator.avatarUrl || null });
+    if (issue.assignee?.name) people.push({ name: cleanName(issue.assignee.name), avatar: issue.assignee.avatarUrl || null });
+    if (issue.creator?.name && issue.creator.name !== issue.assignee?.name) people.push({ name: cleanName(issue.creator.name), avatar: issue.creator.avatarUrl || null });
     const builtBy = people.length ? people : null;
     const { error } = await db.from('changelog').insert({
       title: rewritten.title, tag: rewritten.tag, product: rewritten.product,
