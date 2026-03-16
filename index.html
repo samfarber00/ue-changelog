@@ -159,7 +159,7 @@
 <div class="toast" id="toast"></div>
 <div id="root"></div>
 <script>
-let db, IS_ADMIN = false, entries = [], drafts = [], filtered = [], activeProduct = 'All', activeTag = 'New Feature', editingId = null, pendingFile = null;
+let db, IS_ADMIN = false, entries = [], drafts = [], filtered = [], teamMembers = [], activeProduct = 'All', activeTag = 'New Feature', editingId = null, pendingFile = null, pendingTeamFile = null;
 const ADMIN_REQUESTED = new URLSearchParams(window.location.search).get('admin') === 'true';
 function initDB() { return supabase.createClient(CONFIG.supabaseUrl, CONFIG.supabaseKey); }
 const TAGS = { 'New Feature':{bg:'#EDE9FE',fg:'#5B21B6'}, 'Improvement':{bg:'#D1FAE5',fg:'#065F46'}, 'Bug Fix':{bg:'#FEE2E2',fg:'#991B1B'}, 'Integration':{bg:'#FEF3C7',fg:'#92400E'}, 'Announcement':{bg:'#DBEAFE',fg:'#1E40AF'} };
@@ -170,8 +170,9 @@ function initials(name) { return name.split(' ').filter(Boolean).map(w=>w[0]).jo
 function renderBuiltBy(builtBy) {
   if (!builtBy || !builtBy.length) return '';
   const chips = builtBy.map(p => {
-    const avatar = p.avatar
-      ? `<img class="built-by-avatar" src="${p.avatar}" alt="${p.name}" onerror="this.outerHTML='<span class=\\'built-by-initials\\' style=\\'background:${avatarColor(p.name)}\\'>${initials(p.name)}</span>'">`
+    const avatarUrl = getTeamAvatar(p.name) || p.avatar;
+    const avatar = avatarUrl
+      ? `<img class="built-by-avatar" src="${avatarUrl}" alt="${p.name}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"><span class="built-by-initials" style="background:${avatarColor(p.name)};display:none">${initials(p.name)}</span>`
       : `<span class="built-by-initials" style="background:${avatarColor(p.name)}">${initials(p.name)}</span>`;
     return `<span class="built-by-chip">${avatar}${p.name}</span>`;
   }).join('');
@@ -225,6 +226,24 @@ async function uploadMedia(file) {
   const { data } = db.storage.from('changelog-media').getPublicUrl(path);
   return { url: data.publicUrl, type: file.type };
 }
+
+async function fetchTeamMembers() {
+  const { data } = await db.from('team_members').select('*').order('name');
+  return data || [];
+}
+async function upsertTeamMember(p) {
+  if (p.id) { const {id,...rest}=p; const {error}=await db.from('team_members').update(rest).eq('id',id); return !error; }
+  const {error}=await db.from('team_members').insert(p); return !error;
+}
+async function deleteTeamMember(id) { const {error}=await db.from('team_members').delete().eq('id',id); return !error; }
+async function uploadTeamAvatar(file, name) {
+  const path=`avatars/${name.toLowerCase().replace(/\s+/g,'-')}-${Date.now()}.${file.name.split('.').pop()}`;
+  const {error}=await db.storage.from('changelog-media').upload(path,file,{upsert:true});
+  if(error){showToast('Upload failed','error');return null;}
+  const {data}=db.storage.from('changelog-media').getPublicUrl(path);
+  return data.publicUrl;
+}
+function getTeamAvatar(name) { const m=teamMembers.find(t=>t.name.toLowerCase()===name?.toLowerCase()); return m?.avatar_url||null; }
 
 function renderDraftsPanel() {
   const panel = document.getElementById('drafts-panel'); if (!panel) return;
@@ -297,13 +316,13 @@ function renderTimeline() {
 function renderAdminBar() {
   const ab=document.getElementById('admin-bar'); if(!ab) return;
   ab.style.display=IS_ADMIN?'block':'none';
-  if(IS_ADMIN) ab.innerHTML=`<div class="admin-topbar"><div class="admin-topbar-left"><span>Admin mode</span>${drafts.length>0?`<span class="draft-badge">⬆ ${drafts.length} draft${drafts.length>1?'s':''} waiting</span>`:'<span style="opacity:0.6;font-size:12px;">No pending drafts</span>'}</div><div class="admin-topbar-actions"><button class="btn-w btn-w-solid" onclick="openAdd()">+ New Entry</button><button class="btn-w btn-w-outline" onclick="doLogout()">Log Out</button></div></div>`;
+  if(IS_ADMIN) ab.innerHTML=`<div class="admin-topbar"><div class="admin-topbar-left"><span>Admin mode</span>${drafts.length>0?`<span class="draft-badge">⬆ ${drafts.length} draft${drafts.length>1?'s':''} waiting</span>`:'<span style="opacity:0.6;font-size:12px;">No pending drafts</span>'}</div><div class="admin-topbar-actions"><button class="btn-w btn-w-outline" onclick="openTeamModal()">👥 Team</button><button class="btn-w btn-w-solid" onclick="openAdd()">+ New Entry</button><button class="btn-w btn-w-outline" onclick="doLogout()">Log Out</button></div></div>`;
 }
 async function fullRender() { renderAdminBar(); renderDraftsPanel(); applyFilters(); renderTimeline(); }
 function showAdminLogin() { document.getElementById('overlay-login').style.display='flex'; document.getElementById('login-pass').value=''; document.getElementById('login-err').style.display='none'; setTimeout(()=>document.getElementById('login-pass').focus(),100); }
 function hideAdminLogin() { document.getElementById('overlay-login').style.display='none'; }
 async function doLogin() {
-  if(document.getElementById('login-pass').value===CONFIG.adminPass){IS_ADMIN=true;hideAdminLogin();drafts=await fetchDrafts();fullRender();showToast('Welcome, admin','success');}
+  if(document.getElementById('login-pass').value===CONFIG.adminPass){IS_ADMIN=true;hideAdminLogin();drafts=await fetchDrafts();teamMembers=await fetchTeamMembers();fullRender();showToast('Welcome, admin','success');}
   else{document.getElementById('login-err').style.display='block';}
 }
 function doLogout(){IS_ADMIN=false;drafts=[];window.history.replaceState({},'',window.location.pathname);fullRender();showToast('Signed out');}
@@ -399,6 +418,25 @@ function buildApp(){
         </div>
       </div>
     </div>
+    <div class="overlay" id="overlay-team" style="display:none;" onclick="if(event.target===this)closeTeamModal()">
+      <div class="modal" style="max-width:480px;">
+        <div class="modal-head"><h2>Team Members</h2><button class="modal-close" onclick="closeTeamModal()">✕</button></div>
+        <div class="modal-body">
+          <div id="team-list"></div>
+          <div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--gray-100);">
+            <p style="font-size:13px;font-weight:600;margin-bottom:12px;">Add member</p>
+            <div style="display:flex;gap:10px;align-items:flex-start;">
+              <div style="flex:1;">
+                <div class="field" style="margin-bottom:8px;"><input id="tm-name" placeholder="Full name e.g. Lucas Rivera"></div>
+                <div class="upload-zone" style="padding:12px;"><input type="file" accept="image/*" onchange="handleTeamFileSelect(this)"><p style="font-size:12px;"><strong>Upload photo</strong> (optional)</p></div>
+                <div id="team-preview" style="display:none;margin-top:8px;"></div>
+              </div>
+            </div>
+            <div style="margin-top:12px;text-align:right;"><button class="btn btn-primary" id="tm-add-btn" onclick="doAddMember()">Add Member</button></div>
+          </div>
+        </div>
+      </div>
+    </div>
     <div class="overlay" id="overlay-entry" style="display:none;" onclick="if(event.target===this)closeEntryModal()">
       <div class="modal">
         <div class="modal-head"><h2 id="modal-title-text">New Entry</h2><button class="modal-close" onclick="closeEntryModal()">✕</button></div>
@@ -421,10 +459,46 @@ function buildApp(){
       </div>
     </div>`;
 }
+function openTeamModal() { renderTeamModal(); document.getElementById('overlay-team').style.display='flex'; }
+function closeTeamModal() { document.getElementById('overlay-team').style.display='none'; pendingTeamFile=null; }
+function renderTeamModal() {
+  const list = teamMembers.length ? teamMembers.map(m=>`
+    <div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--gray-100);">
+      ${m.avatar_url?`<img src="${m.avatar_url}" style="width:36px;height:36px;border-radius:50%;object-fit:cover;">`:`<span style="width:36px;height:36px;border-radius:50%;background:${avatarColor(m.name)};display:flex;align-items:center;justify-content:center;color:white;font-size:12px;font-weight:700;">${initials(m.name)}</span>`}
+      <span style="flex:1;font-size:14px;font-weight:600;">${m.name}</span>
+      <button class="btn btn-danger" style="font-size:11px;padding:4px 10px;" onclick="doDeleteMember(${m.id})">Remove</button>
+    </div>`).join('') : '<p style="font-size:13px;color:var(--gray-400);padding:12px 0;">No team members yet.</p>';
+  document.getElementById('team-list').innerHTML=list;
+  document.getElementById('team-preview').style.display='none';
+  document.getElementById('team-preview').innerHTML='';
+  document.getElementById('tm-name').value='';
+  pendingTeamFile=null;
+}
+function handleTeamFileSelect(input) {
+  const file=input.files[0]; if(!file) return;
+  pendingTeamFile=file;
+  const r=new FileReader(); r.onload=ev=>{const p=document.getElementById('team-preview');p.style.display='block';p.innerHTML=`<img src="${ev.target.result}" style="width:60px;height:60px;border-radius:50%;object-fit:cover;">`;};
+  r.readAsDataURL(file);
+}
+async function doAddMember() {
+  const name=document.getElementById('tm-name').value.trim(); if(!name){showToast('Enter a name','error');return;}
+  const btn=document.getElementById('tm-add-btn'); btn.disabled=true; btn.textContent='Saving…';
+  let avatar_url=null;
+  if(pendingTeamFile) avatar_url=await uploadTeamAvatar(pendingTeamFile,name);
+  const ok=await upsertTeamMember({name,avatar_url});
+  btn.disabled=false; btn.textContent='Add Member';
+  if(!ok){showToast('Failed to add','error');return;}
+  teamMembers=await fetchTeamMembers(); renderTeamModal(); renderTimeline(); showToast('Member added!','success');
+}
+async function doDeleteMember(id) {
+  if(!confirm('Remove this team member?')) return;
+  await deleteTeamMember(id); teamMembers=await fetchTeamMembers(); renderTeamModal(); renderTimeline();
+}
+
 async function boot(){
   db=initDB();buildApp();
   document.addEventListener('click',e=>{if(!e.target.closest('.filter-bar'))closeFilterDropdown();});
-  entries=await fetchEntries();applyFilters();renderTimeline();updateFilterUI();
+  [entries, teamMembers]=await Promise.all([fetchEntries(), fetchTeamMembers()]);applyFilters();renderTimeline();updateFilterUI();
   if(ADMIN_REQUESTED)showAdminLogin();
 }
 boot();
