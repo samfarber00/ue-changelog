@@ -35,49 +35,48 @@ function pickTag(labels) {
   return 'New Feature';
 }
 
-async function rewriteForCustomers(title, description) {
-  const prompt = `You are writing a product changelog entry for UserEvidence, a B2B customer evidence and advocacy platform that helps companies collect and showcase customer proof (case studies, reviews, surveys, testimonials).
+function cleanTitle(title) {
+  // Strip [Company] or [Co1, Co2] prefixes and trim
+  return title.replace(/^\[.*?\]\s*/g, '').trim();
+}
 
-A software ticket has been completed. Return a JSON object with two fields: "title" and "description".
+async function rewriteDescription(title, description) {
+  const prompt = `You are writing a product changelog entry for UserEvidence, a B2B customer evidence and advocacy platform.
 
-Title rules:
-- Remove any customer/company name prefixes in brackets like [Wrike], [Acme], etc.
-- Write a clean, punchy changelog title (5-10 words max)
-- Use plain language — no ticket jargon, no IDs
-- Example: "Skip Irrelevant Missions in the Advocate Hub"
+A software ticket has just been completed. Write a 1-2 sentence customer-facing description of what shipped.
 
-Description rules:
-- 1-2 sentences only
-- Explain the problem it solves and why it matters to the user
-- Focus on the customer benefit, not technical implementation
-- No markdown, no bullet points, plain prose
-- Do not start with "We" — lead with what changed or what users can now do
-- Tone: clear, confident, professional but warm
+Rules:
+- Plain prose only, no markdown, no bullet points
+- Focus on the customer benefit, not technical details
+- Do not start with "We"
+- Tone: clear, confident, professional
 
 Ticket title: ${title}
 Ticket description: ${description || 'No description provided.'}
 
-Respond with only valid JSON like: {"title": "...", "description": "..."}`;
+Reply with only the description text. Nothing else.`;
 
   const res = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'x-api-key': ANTHROPIC_KEY, 'anthropic-version': '2023-06-01' },
     body: JSON.stringify({
       model: 'claude-3-5-sonnet-20241022',
-      max_tokens: 300,
+      max_tokens: 200,
       messages: [{ role: 'user', content: prompt }],
     }),
   });
   const data = await res.json();
-  console.log('Anthropic response status:', res.status);
-  console.log('Anthropic response:', JSON.stringify(data).slice(0, 500));
-  const text = data?.content?.[0]?.text?.trim() || '';
-  try {
-    const parsed = JSON.parse(text);
-    return { title: parsed.title || title, description: parsed.description || description || '' };
-  } catch {
-    return { title, description: text || description || '' };
-  }
+  console.log('Anthropic status:', res.status, '| response:', JSON.stringify(data).slice(0, 300));
+  return data?.content?.[0]?.text?.trim() || null;
+}
+
+async function rewriteForCustomers(title, description) {
+  const cleanedTitle = cleanTitle(title);
+  const rewrittenDesc = await rewriteDescription(title, description);
+  return {
+    title: cleanedTitle,
+    description: rewrittenDesc || description || '',
+  };
 }
 
 module.exports = async function handler(req, res) {
