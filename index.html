@@ -97,7 +97,7 @@
   .card-title { font-size: 17px; font-weight: 700; line-height: 1.3; color: var(--gray-900); }
   .tag-pill { display: inline-flex; align-items: center; padding: 3px 10px; border-radius: 100px; font-size: 11px; font-weight: 700; letter-spacing: 0.04em; white-space: nowrap; flex-shrink: 0; }
   .card-desc { font-size: 14px; color: var(--gray-500); line-height: 1.7; font-family: 'Inter', sans-serif; }
-  .card-actions { display: flex; gap: 8px; margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--gray-100); }
+  .card-actions { display: flex; gap: 8px; margin-top: 12px; }
   .built-by { display: flex; align-items: center; gap: 10px; margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--gray-100); }
   .built-by-label { font-size: 12px; color: var(--gray-400); font-family: 'Inter', sans-serif; white-space: nowrap; }
   .built-by-chips { display: flex; gap: 6px; flex-wrap: wrap; }
@@ -258,12 +258,15 @@ async function doDiscardDraft(id) {
   if (!await discardDraft(id)) return;
   drafts=drafts.filter(d=>d.id!==id); renderDraftsPanel(); showToast('Draft discarded');
 }
+function builtByToString(builtBy) { return (builtBy||[]).map(p=>p.name).join(', '); }
+function stringToBuiltBy(str) { return str.split(',').map(s=>s.trim()).filter(Boolean).map(n=>({name:n,avatar:null})); }
 function openEditDraft(id) {
   const d=drafts.find(x=>x.id===id); if(!d) return;
   editingId=id; pendingFile=null;
   document.getElementById('modal-title-text').textContent='Edit & Publish Draft';
   document.getElementById('f-title').value=d.title; document.getElementById('f-product').value=d.product||'Advocacy'; document.getElementById('f-tag').value=d.tag;
   document.getElementById('f-date').value=d.date; document.getElementById('f-desc').value=d.description;
+  document.getElementById('f-built-by').value=builtByToString(d.built_by);
   document.getElementById('preview-wrap').style.display='none'; document.getElementById('preview-wrap').innerHTML='';
   document.getElementById('save-btn').textContent='Publish Entry';
   document.getElementById('overlay-entry').style.display='flex';
@@ -304,19 +307,20 @@ async function doLogin() {
   else{document.getElementById('login-err').style.display='block';}
 }
 function doLogout(){IS_ADMIN=false;drafts=[];window.history.replaceState({},'',window.location.pathname);fullRender();showToast('Signed out');}
-function openAdd(){editingId=null;pendingFile=null;document.getElementById('modal-title-text').textContent='New Entry';document.getElementById('f-title').value='';document.getElementById('f-product').value='Advocacy';document.getElementById('f-tag').value='New Feature';document.getElementById('f-date').value=new Date().toISOString().slice(0,10);document.getElementById('f-desc').value='';document.getElementById('preview-wrap').style.display='none';document.getElementById('preview-wrap').innerHTML='';document.getElementById('save-btn').textContent='Save Entry';document.getElementById('overlay-entry').style.display='flex';}
-function openEdit(id){const e=entries.find(x=>x.id===id);if(!e)return;editingId=id;pendingFile=null;document.getElementById('modal-title-text').textContent='Edit Entry';document.getElementById('f-title').value=e.title;document.getElementById('f-product').value=e.product||'Advocacy';document.getElementById('f-tag').value=e.tag;document.getElementById('f-date').value=e.date;document.getElementById('f-desc').value=e.description;const pw=document.getElementById('preview-wrap');if(e.media_url){pw.style.display='block';pw.innerHTML=(e.media_type||'').startsWith('video')?`<video src="${e.media_url}" controls style="width:100%;max-height:180px;object-fit:cover;display:block;"></video>`:`<img src="${e.media_url}" style="width:100%;max-height:180px;object-fit:cover;display:block;">`;}else{pw.style.display='none';pw.innerHTML='';}document.getElementById('save-btn').textContent='Save Entry';document.getElementById('overlay-entry').style.display='flex';}
+function openAdd(){editingId=null;pendingFile=null;document.getElementById('modal-title-text').textContent='New Entry';document.getElementById('f-title').value='';document.getElementById('f-product').value='Advocacy';document.getElementById('f-tag').value='New Feature';document.getElementById('f-date').value=new Date().toISOString().slice(0,10);document.getElementById('f-desc').value='';document.getElementById('f-built-by').value='';document.getElementById('preview-wrap').style.display='none';document.getElementById('preview-wrap').innerHTML='';document.getElementById('save-btn').textContent='Save Entry';document.getElementById('overlay-entry').style.display='flex';}
+function openEdit(id){const e=entries.find(x=>x.id===id);if(!e)return;editingId=id;pendingFile=null;document.getElementById('modal-title-text').textContent='Edit Entry';document.getElementById('f-title').value=e.title;document.getElementById('f-product').value=e.product||'Advocacy';document.getElementById('f-tag').value=e.tag;document.getElementById('f-date').value=e.date;document.getElementById('f-desc').value=e.description;document.getElementById('f-built-by').value=builtByToString(e.built_by);const pw=document.getElementById('preview-wrap');if(e.media_url){pw.style.display='block';pw.innerHTML=(e.media_type||'').startsWith('video')?`<video src="${e.media_url}" controls style="width:100%;max-height:180px;object-fit:cover;display:block;"></video>`:`<img src="${e.media_url}" style="width:100%;max-height:180px;object-fit:cover;display:block;">`;}else{pw.style.display='none';pw.innerHTML='';}document.getElementById('save-btn').textContent='Save Entry';document.getElementById('overlay-entry').style.display='flex';}
 function closeEntryModal(){document.getElementById('overlay-entry').style.display='none';}
 function handleFileSelect(input){const file=input.files[0];if(!file)return;pendingFile=file;const r=new FileReader();r.onload=ev=>{const pw=document.getElementById('preview-wrap');pw.style.display='block';pw.innerHTML=file.type.startsWith('video')?`<video src="${ev.target.result}" controls style="width:100%;max-height:180px;object-fit:cover;display:block;"></video>`:`<img src="${ev.target.result}" style="width:100%;max-height:180px;object-fit:cover;display:block;">`;};r.readAsDataURL(file);}
 async function saveEntry(){
-  const title=document.getElementById('f-title').value.trim(),product=document.getElementById('f-product').value,tag=document.getElementById('f-tag').value,date=document.getElementById('f-date').value,description=document.getElementById('f-desc').value.trim();
+  const title=document.getElementById('f-title').value.trim(),product=document.getElementById('f-product').value,tag=document.getElementById('f-tag').value,date=document.getElementById('f-date').value,description=document.getElementById('f-desc').value.trim(),builtByStr=document.getElementById('f-built-by').value.trim();
+  const built_by=builtByStr?stringToBuiltBy(builtByStr):null;
   if(!title||!date||!description){showToast('Please fill in all fields','error');return;}
   const btn=document.getElementById('save-btn');btn.disabled=true;btn.textContent='Saving…';
   let media_url=null,media_type=null;
   if(editingId){const ex=[...entries,...drafts].find(x=>x.id===editingId);media_url=ex?.media_url;media_type=ex?.media_type;}
   if(pendingFile){const res=await uploadMedia(pendingFile);if(res.url){media_url=res.url;media_type=res.type;}}
   const isDraft=editingId&&drafts.find(x=>x.id===editingId);
-  const payload={title,product,tag,date,description,media_url,media_type,status:'published'};
+  const payload={title,product,tag,date,description,media_url,media_type,built_by,status:'published'};
   if(editingId)payload.id=editingId;
   const ok=await upsertEntry(payload);btn.disabled=false;btn.textContent='Save Entry';if(!ok)return;
   closeEntryModal();
@@ -406,6 +410,7 @@ function buildApp(){
           </div>
           <div class="field"><label>Date</label><input type="date" id="f-date"></div>
           <div class="field"><label>Description</label><textarea id="f-desc" placeholder="What shipped? What does it do? Why does it matter?"></textarea></div>
+          <div class="field"><label>Built by <span style="font-weight:400;color:var(--gray-400)">(comma-separated names)</span></label><input id="f-built-by" placeholder="e.g. Sam Farber, Brandon Lee"></div>
           <div class="field">
             <label>Media (image or video)</label>
             <div class="upload-zone"><input type="file" accept="image/*,video/*" onchange="handleFileSelect(this)"><div class="upload-zone-icon">🖼️</div><p><strong>Click to upload</strong> or drag and drop<br>PNG, JPG, GIF, MP4, WebM</p></div>
