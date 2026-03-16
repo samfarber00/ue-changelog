@@ -282,7 +282,7 @@ function renderEntry(e) {
   const productTag = e.product ? `<span style="color:var(--gray-500);font-size:12px;font-family:'Inter',sans-serif;">${e.product}</span><span style="color:var(--gray-300);margin:0 6px;">·</span>` : '';
   const typeTag = `<span class="tag-pill" style="${tagStyle(e.tag)};font-size:11px;">${e.tag}</span>`;
   const builtByHtml = renderBuiltBy(e.built_by);
-  return `<div class="entry"><div class="entry-meta"><div class="entry-date">${fmtDate(e.date)}</div></div><div class="card">${media}<div class="card-body"><div class="card-top" style="margin-bottom:8px;"><div style="font-size:12px;color:var(--gray-400);font-family:'Inter',sans-serif;">${fmtDate(e.date)}</div><div style="display:flex;align-items:center;flex-shrink:0;">${productTag}${typeTag}</div></div><div class="card-title" style="margin-bottom:8px;">${e.title}</div><div class="card-desc">${e.description||''}</div>${builtByHtml}${actions}</div></div></div>`;
+  return `<div class="entry"><div class="entry-meta"><div class="entry-date">${fmtDate(e.date)}</div></div><div class="card">${media}<div class="card-body"><div class="card-top" style="margin-bottom:8px;"><div></div><div style="display:flex;align-items:center;flex-shrink:0;">${productTag}${typeTag}</div></div><div class="card-title" style="margin-bottom:8px;">${e.title}</div><div class="card-desc">${e.description||''}</div>${builtByHtml}${actions}</div></div></div>`;
 }
 function renderTimeline() {
   const tl=document.getElementById('timeline'); if(!tl) return;
