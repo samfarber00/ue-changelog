@@ -69,6 +69,8 @@ Respond with only valid JSON like: {"title": "...", "description": "..."}`;
     }),
   });
   const data = await res.json();
+  console.log('Anthropic response status:', res.status);
+  console.log('Anthropic response:', JSON.stringify(data).slice(0, 500));
   const text = data?.content?.[0]?.text?.trim() || '';
   try {
     const parsed = JSON.parse(text);
