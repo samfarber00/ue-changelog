@@ -179,6 +179,8 @@ function renderBuiltBy(builtBy) {
 }
 function fmtDate(str) { return new Date(str+'T00:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}); }
 function getYear(str) { return str?str.slice(0,4):''; }
+function getMonthKey(str) { if(!str) return ''; const d=new Date(str+'T00:00:00'); return d.toLocaleDateString('en-US',{month:'long',year:'numeric'}); }
+function monthSortKey(str) { if(!str) return ''; const d=new Date(str+'T00:00:00'); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`; }
 
 async function fetchEntries() {
   const { data, error } = await db.from('changelog').select('*').eq('status','published').order('date',{ascending:false});
@@ -286,8 +288,8 @@ function renderEntry(e) {
 function renderTimeline() {
   const tl=document.getElementById('timeline'); if(!tl) return;
   if(!filtered.length){tl.innerHTML=`<div class="empty"><div class="empty-icon">📭</div><h3>No entries yet</h3><p>${IS_ADMIN?'Publish a draft above or click "+ New Entry".':'Check back soon for updates.'}</p></div>`;return;}
-  const g={}; filtered.forEach(e=>{const y=getYear(e.date);if(!g[y])g[y]=[];g[y].push(e);});
-  tl.innerHTML=Object.keys(g).sort((a,b)=>b-a).map(y=>`<div class="year-block"><div class="year-heading">${y}</div>${g[y].map(renderEntry).join('')}</div>`).join('');
+  const g={}; filtered.forEach(e=>{const k=getMonthKey(e.date);if(!g[k])g[k]=[];g[k].push(e);});
+  tl.innerHTML=Object.keys(g).sort((a,b)=>monthSortKey(g[b][0].date).localeCompare(monthSortKey(g[a][0].date))).map(k=>`<div class="year-block"><div class="year-heading">${k}</div>${g[k].map(renderEntry).join('')}</div>`).join('');
 }
 function renderAdminBar() {
   const ab=document.getElementById('admin-bar'); if(!ab) return;
