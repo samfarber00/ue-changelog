@@ -82,6 +82,30 @@ Reply with only valid JSON. No markdown, no code blocks.`
   }
 }
 
+async function extractAndUploadImage(description, linearId, db) {
+  if (!description) return null;
+  const match = description.match(/!\[.*?\]\((https:\/\/uploads\.linear\.app\/[^)]+)\)/);
+  if (!match) return null;
+  const imageUrl = match[1];
+  try {
+    const res = await fetch(imageUrl);
+    if (!res.ok) return null;
+    const contentType = res.headers.get('content-type') || 'image/png';
+    if (!contentType.startsWith('image/')) return null;
+    const buffer = await res.arrayBuffer();
+    const ext = contentType.split('/')[1]?.split(';')[0] || 'png';
+    const path = `${linearId}.${ext}`;
+    const { error } = await db.storage.from('changelog-media').upload(path, buffer, { contentType, upsert: true });
+    if (error) { console.error('Storage upload error:', error.message); return null; }
+    const { data } = db.storage.from('changelog-media').getPublicUrl(path);
+    console.log('Image uploaded:', data.publicUrl);
+    return data.publicUrl;
+  } catch (err) {
+    console.error('Image upload failed:', err.message);
+    return null;
+  }
+}
+
 async function rewriteForCustomers(title, description, fallbackTag) {
   const cleanedTitle = cleanTitle(title);
   let result = null;
@@ -113,11 +137,15 @@ module.exports = async function handler(req, res) {
     const { data: existing } = await db.from('changelog').select('id').eq('linear_id', issue.id).single();
     if (existing) return res.status(200).json({ ok: true, skipped: 'draft already exists' });
     const fallbackTag = pickTag(labels);
-    const rewritten = await rewriteForCustomers(issue.title, issue.description, fallbackTag);
+    const [rewritten, mediaUrl] = await Promise.all([
+      rewriteForCustomers(issue.title, issue.description, fallbackTag),
+      extractAndUploadImage(issue.description, issue.id, db),
+    ]);
     const { error } = await db.from('changelog').insert({
       title: rewritten.title, tag: rewritten.tag, product: rewritten.product,
       date: new Date().toISOString().slice(0, 10),
-      description: rewritten.description, media_url: null, media_type: null,
+      description: rewritten.description,
+      media_url: mediaUrl, media_type: mediaUrl ? 'image' : null,
       status: 'draft', linear_id: issue.id, linear_url: issue.url,
     });
     if (error) { console.error('Supabase insert error:', error); return res.status(500).json({ error: error.message }); }
