@@ -69,7 +69,7 @@ Reply with only valid JSON. No markdown, no code blocks.`
   const raw = msg.content?.[0]?.text?.trim() || '';
   console.log('Anthropic response:', raw.slice(0, 300));
   // Strip markdown code blocks if present
-  const text = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim();
+  const text = raw.replace(/^\s*```(?:json)?\s*/i, '').replace(/\s*```\s*$/, '').trim();
   try {
     return JSON.parse(text);
   } catch {
