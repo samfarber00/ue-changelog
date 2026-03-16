@@ -1,4 +1,5 @@
 const { createClient } = require('@supabase/supabase-js');
+const Anthropic = require('@anthropic-ai/sdk');
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_KEY = process.env.SUPABASE_SERVICE_KEY;
@@ -41,7 +42,13 @@ function cleanTitle(title) {
 }
 
 async function rewriteDescription(title, description) {
-  const prompt = `You are writing a product changelog entry for UserEvidence, a B2B customer evidence and advocacy platform.
+  const client = new Anthropic({ apiKey: ANTHROPIC_KEY });
+  const msg = await client.messages.create({
+    model: 'claude-3-5-sonnet-20241022',
+    max_tokens: 200,
+    messages: [{
+      role: 'user',
+      content: `You are writing a product changelog entry for UserEvidence, a B2B customer evidence and advocacy platform.
 
 A software ticket has just been completed. Write a 1-2 sentence customer-facing description of what shipped.
 
@@ -52,25 +59,14 @@ Rules:
 - Tone: clear, confident, professional
 
 Ticket title: ${title}
-Ticket description: ${description || 'No description provided.'}
+Ticket description: ${(description || 'No description provided.').slice(0, 2000)}
 
-Reply with only the description text. Nothing else.`;
-
-  const res = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'x-api-key': ANTHROPIC_KEY, 'anthropic-version': '2023-06-01' },
-    body: JSON.stringify({
-      model: 'claude-3-5-sonnet-20241022',
-      max_tokens: 200,
-      messages: [{ role: 'user', content: prompt }],
-    }),
+Reply with only the description text. Nothing else.`
+    }],
   });
-  const data = await res.json();
-  const errorMsg = `[AI status:${res.status} err:${data?.error?.message || data?.error?.type || 'none'} type:${data?.type}]`;
-  console.log('Anthropic:', errorMsg);
-  const text = data?.content?.[0]?.text?.trim();
-  if (!text) return errorMsg; // surface error in draft so we can see it
-  return text;
+  const text = msg.content?.[0]?.text?.trim();
+  console.log('Anthropic rewrite:', text?.slice(0, 100));
+  return text || null;
 }
 
 async function rewriteForCustomers(title, description) {
