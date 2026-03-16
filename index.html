@@ -66,8 +66,13 @@
   .hero h1 { font-size: 44px; font-weight: 700; line-height: 1.12; margin-bottom: 14px; }
   .hero h1 span { color: var(--purple); }
   .hero p { font-size: 16px; color: var(--gray-500); line-height: 1.65; font-family: 'Inter', sans-serif; }
-  .filters { display: flex; gap: 8px; flex-wrap: wrap; padding: 28px 40px 24px; max-width: 960px; margin: 0 auto; }
-  .chip { font-family: 'Sora', sans-serif; padding: 6px 16px; border-radius: 100px; font-size: 13px; font-weight: 500; border: 1.5px solid var(--gray-200); background: transparent; color: var(--gray-500); cursor: pointer; transition: all 0.15s; }
+  .filters-section { max-width: 960px; margin: 0 auto; padding: 28px 40px 20px; }
+  .product-tabs { display: flex; gap: 4px; background: var(--gray-100); border-radius: 10px; padding: 4px; width: fit-content; margin-bottom: 14px; flex-wrap: wrap; }
+  .product-tab { font-family: 'Sora', sans-serif; padding: 7px 18px; border-radius: 7px; font-size: 13px; font-weight: 600; border: none; background: transparent; color: var(--gray-500); cursor: pointer; transition: all 0.15s; }
+  .product-tab:hover { color: var(--gray-900); }
+  .product-tab.active { background: white; color: var(--gray-900); box-shadow: 0 1px 3px rgba(0,0,0,0.12); }
+  .type-chips { display: flex; gap: 6px; flex-wrap: wrap; }
+  .chip { font-family: 'Sora', sans-serif; padding: 5px 14px; border-radius: 100px; font-size: 12px; font-weight: 500; border: 1.5px solid var(--gray-200); background: transparent; color: var(--gray-500); cursor: pointer; transition: all 0.15s; }
   .chip:hover { border-color: var(--purple); color: var(--purple); }
   .chip.active { background: var(--purple); color: white; border-color: var(--purple); }
   .chip[data-tag="Improvement"].active { background: var(--teal); border-color: var(--teal); }
@@ -145,7 +150,7 @@
 <div class="toast" id="toast"></div>
 <div id="root"></div>
 <script>
-let db, IS_ADMIN = false, entries = [], drafts = [], filtered = [], activeTag = 'All', editingId = null, pendingFile = null;
+let db, IS_ADMIN = false, entries = [], drafts = [], filtered = [], activeProduct = 'All', activeTag = 'New Feature', editingId = null, pendingFile = null;
 const ADMIN_REQUESTED = new URLSearchParams(window.location.search).get('admin') === 'true';
 function initDB() { return supabase.createClient(CONFIG.supabaseUrl, CONFIG.supabaseKey); }
 const TAGS = { 'New Feature':{bg:'#EDE9FE',fg:'#5B21B6'}, 'Improvement':{bg:'#D1FAE5',fg:'#065F46'}, 'Bug Fix':{bg:'#FEE2E2',fg:'#991B1B'}, 'Integration':{bg:'#FEF3C7',fg:'#92400E'}, 'Announcement':{bg:'#DBEAFE',fg:'#1E40AF'} };
@@ -222,7 +227,7 @@ function renderDraftsPanel() {
 }
 async function doPublishDraft(id) {
   if (!await publishDraft(id)) return;
-  drafts=drafts.filter(d=>d.id!==id); entries=await fetchEntries(); applyFilter(activeTag); renderDraftsPanel(); renderTimeline(); showToast('Published!','success');
+  drafts=drafts.filter(d=>d.id!==id); entries=await fetchEntries(); applyFilters(); renderDraftsPanel(); renderTimeline(); showToast('Published!','success');
 }
 async function doDiscardDraft(id) {
   if (!confirm('Discard this draft?')) return;
@@ -233,13 +238,21 @@ function openEditDraft(id) {
   const d=drafts.find(x=>x.id===id); if(!d) return;
   editingId=id; pendingFile=null;
   document.getElementById('modal-title-text').textContent='Edit & Publish Draft';
-  document.getElementById('f-title').value=d.title; document.getElementById('f-tag').value=d.tag;
+  document.getElementById('f-title').value=d.title; document.getElementById('f-product').value=d.product||'Advocacy'; document.getElementById('f-tag').value=d.tag;
   document.getElementById('f-date').value=d.date; document.getElementById('f-desc').value=d.description;
   document.getElementById('preview-wrap').style.display='none'; document.getElementById('preview-wrap').innerHTML='';
   document.getElementById('save-btn').textContent='Publish Entry';
   document.getElementById('overlay-entry').style.display='flex';
 }
-function applyFilter(tag) { activeTag=tag; filtered=tag==='All'?[...entries]:entries.filter(e=>e.tag===tag); filtered.sort((a,b)=>(b.date||'').localeCompare(a.date||'')); }
+function applyFilters() {
+  filtered = entries.filter(e => {
+    const productMatch = activeProduct === 'All' || (e.product || 'Advocacy') === activeProduct;
+    const tagMatch = activeTag === 'All' || e.tag === activeTag;
+    return productMatch && tagMatch;
+  });
+  filtered.sort((a,b) => (b.date||'').localeCompare(a.date||''));
+}
+function applyFilter(tag) { activeTag = tag; applyFilters(); }
 function renderEntry(e) {
   const media=e.media_url?`<div class="card-media">${(e.media_type||'').startsWith('video')?`<video src="${e.media_url}" controls muted playsinline></video>`:`<img src="${e.media_url}" alt="${e.title}" loading="lazy">`}</div>`:'';
   const actions=IS_ADMIN?`<div class="card-actions"><button class="btn btn-ghost" style="font-size:12px;padding:5px 14px;" onclick="openEdit(${e.id})">Edit</button><button class="btn btn-danger" onclick="confirmDelete(${e.id})">Delete</button></div>`:'';
@@ -256,7 +269,7 @@ function renderAdminBar() {
   ab.style.display=IS_ADMIN?'block':'none';
   if(IS_ADMIN) ab.innerHTML=`<div class="admin-topbar"><div class="admin-topbar-left"><span>Admin mode</span>${drafts.length>0?`<span class="draft-badge">⬆ ${drafts.length} draft${drafts.length>1?'s':''} waiting</span>`:'<span style="opacity:0.6;font-size:12px;">No pending drafts</span>'}</div><div class="admin-topbar-actions"><button class="btn-w btn-w-solid" onclick="openAdd()">+ New Entry</button><button class="btn-w btn-w-outline" onclick="doLogout()">Log Out</button></div></div>`;
 }
-async function fullRender() { renderAdminBar(); renderDraftsPanel(); applyFilter(activeTag); renderTimeline(); }
+async function fullRender() { renderAdminBar(); renderDraftsPanel(); applyFilters(); renderTimeline(); }
 function showAdminLogin() { document.getElementById('overlay-login').style.display='flex'; document.getElementById('login-pass').value=''; document.getElementById('login-err').style.display='none'; setTimeout(()=>document.getElementById('login-pass').focus(),100); }
 function hideAdminLogin() { document.getElementById('overlay-login').style.display='none'; }
 async function doLogin() {
@@ -264,28 +277,29 @@ async function doLogin() {
   else{document.getElementById('login-err').style.display='block';}
 }
 function doLogout(){IS_ADMIN=false;drafts=[];window.history.replaceState({},'',window.location.pathname);fullRender();showToast('Signed out');}
-function openAdd(){editingId=null;pendingFile=null;document.getElementById('modal-title-text').textContent='New Entry';document.getElementById('f-title').value='';document.getElementById('f-tag').value='New Feature';document.getElementById('f-date').value=new Date().toISOString().slice(0,10);document.getElementById('f-desc').value='';document.getElementById('preview-wrap').style.display='none';document.getElementById('preview-wrap').innerHTML='';document.getElementById('save-btn').textContent='Save Entry';document.getElementById('overlay-entry').style.display='flex';}
-function openEdit(id){const e=entries.find(x=>x.id===id);if(!e)return;editingId=id;pendingFile=null;document.getElementById('modal-title-text').textContent='Edit Entry';document.getElementById('f-title').value=e.title;document.getElementById('f-tag').value=e.tag;document.getElementById('f-date').value=e.date;document.getElementById('f-desc').value=e.description;const pw=document.getElementById('preview-wrap');if(e.media_url){pw.style.display='block';pw.innerHTML=(e.media_type||'').startsWith('video')?`<video src="${e.media_url}" controls style="width:100%;max-height:180px;object-fit:cover;display:block;"></video>`:`<img src="${e.media_url}" style="width:100%;max-height:180px;object-fit:cover;display:block;">`;}else{pw.style.display='none';pw.innerHTML='';}document.getElementById('save-btn').textContent='Save Entry';document.getElementById('overlay-entry').style.display='flex';}
+function openAdd(){editingId=null;pendingFile=null;document.getElementById('modal-title-text').textContent='New Entry';document.getElementById('f-title').value='';document.getElementById('f-product').value='Advocacy';document.getElementById('f-tag').value='New Feature';document.getElementById('f-date').value=new Date().toISOString().slice(0,10);document.getElementById('f-desc').value='';document.getElementById('preview-wrap').style.display='none';document.getElementById('preview-wrap').innerHTML='';document.getElementById('save-btn').textContent='Save Entry';document.getElementById('overlay-entry').style.display='flex';}
+function openEdit(id){const e=entries.find(x=>x.id===id);if(!e)return;editingId=id;pendingFile=null;document.getElementById('modal-title-text').textContent='Edit Entry';document.getElementById('f-title').value=e.title;document.getElementById('f-product').value=e.product||'Advocacy';document.getElementById('f-tag').value=e.tag;document.getElementById('f-date').value=e.date;document.getElementById('f-desc').value=e.description;const pw=document.getElementById('preview-wrap');if(e.media_url){pw.style.display='block';pw.innerHTML=(e.media_type||'').startsWith('video')?`<video src="${e.media_url}" controls style="width:100%;max-height:180px;object-fit:cover;display:block;"></video>`:`<img src="${e.media_url}" style="width:100%;max-height:180px;object-fit:cover;display:block;">`;}else{pw.style.display='none';pw.innerHTML='';}document.getElementById('save-btn').textContent='Save Entry';document.getElementById('overlay-entry').style.display='flex';}
 function closeEntryModal(){document.getElementById('overlay-entry').style.display='none';}
 function handleFileSelect(input){const file=input.files[0];if(!file)return;pendingFile=file;const r=new FileReader();r.onload=ev=>{const pw=document.getElementById('preview-wrap');pw.style.display='block';pw.innerHTML=file.type.startsWith('video')?`<video src="${ev.target.result}" controls style="width:100%;max-height:180px;object-fit:cover;display:block;"></video>`:`<img src="${ev.target.result}" style="width:100%;max-height:180px;object-fit:cover;display:block;">`;};r.readAsDataURL(file);}
 async function saveEntry(){
-  const title=document.getElementById('f-title').value.trim(),tag=document.getElementById('f-tag').value,date=document.getElementById('f-date').value,description=document.getElementById('f-desc').value.trim();
+  const title=document.getElementById('f-title').value.trim(),product=document.getElementById('f-product').value,tag=document.getElementById('f-tag').value,date=document.getElementById('f-date').value,description=document.getElementById('f-desc').value.trim();
   if(!title||!date||!description){showToast('Please fill in all fields','error');return;}
   const btn=document.getElementById('save-btn');btn.disabled=true;btn.textContent='Saving…';
   let media_url=null,media_type=null;
   if(editingId){const ex=[...entries,...drafts].find(x=>x.id===editingId);media_url=ex?.media_url;media_type=ex?.media_type;}
   if(pendingFile){const res=await uploadMedia(pendingFile);if(res.url){media_url=res.url;media_type=res.type;}}
   const isDraft=editingId&&drafts.find(x=>x.id===editingId);
-  const payload={title,tag,date,description,media_url,media_type,status:'published'};
+  const payload={title,product,tag,date,description,media_url,media_type,status:'published'};
   if(editingId)payload.id=editingId;
   const ok=await upsertEntry(payload);btn.disabled=false;btn.textContent='Save Entry';if(!ok)return;
   closeEntryModal();
   if(isDraft)drafts=drafts.filter(d=>d.id!==editingId);
-  entries=await fetchEntries();applyFilter(activeTag);renderDraftsPanel();renderAdminBar();renderTimeline();
+  entries=await fetchEntries();applyFilters();renderDraftsPanel();renderAdminBar();renderTimeline();
   showToast(isDraft?'Draft published!':(editingId?'Entry updated':'Entry published'),'success');
 }
-async function confirmDelete(id){if(!confirm('Delete this entry?'))return;if(await deleteEntryDB(id)){entries=entries.filter(e=>e.id!==id);applyFilter(activeTag);renderTimeline();showToast('Entry deleted');}}
-function setFilter(tag,btn){activeTag=tag;document.querySelectorAll('.chip').forEach(c=>c.classList.remove('active'));btn.classList.add('active');applyFilter(tag);renderTimeline();}
+async function confirmDelete(id){if(!confirm('Delete this entry?'))return;if(await deleteEntryDB(id)){entries=entries.filter(e=>e.id!==id);applyFilters();renderTimeline();showToast('Entry deleted');}}
+function setProduct(product,btn){activeProduct=product;document.querySelectorAll('.product-tab').forEach(t=>t.classList.remove('active'));btn.classList.add('active');applyFilters();renderTimeline();}
+function setFilter(tag,btn){activeTag=tag;document.querySelectorAll('.chip').forEach(c=>c.classList.remove('active'));btn.classList.add('active');applyFilters();renderTimeline();}
 let toastTimer;
 function showToast(msg,type=''){const t=document.getElementById('toast');t.textContent=msg;t.className='toast show'+(type?' '+type:'');clearTimeout(toastTimer);toastTimer=setTimeout(()=>t.classList.remove('show'),2800);}
 function buildApp(){
@@ -302,13 +316,21 @@ function buildApp(){
       <h1>What's new at<br><span>UserEvidence Advocacy</span></h1>
       <p>Every feature, fix, and improvement — so you always know what's shipping.</p>
     </div>
-    <div class="filters">
-      <button class="chip active" data-tag="All" onclick="setFilter('All',this)">All</button>
-      <button class="chip" data-tag="New Feature" onclick="setFilter('New Feature',this)">New Feature</button>
-      <button class="chip" data-tag="Improvement" onclick="setFilter('Improvement',this)">Improvement</button>
-      <button class="chip" data-tag="Bug Fix" onclick="setFilter('Bug Fix',this)">Bug Fix</button>
-      <button class="chip" data-tag="Integration" onclick="setFilter('Integration',this)">Integration</button>
-      <button class="chip" data-tag="Announcement" onclick="setFilter('Announcement',this)">Announcement</button>
+    <div class="filters-section">
+      <div class="product-tabs">
+        <button class="product-tab active" onclick="setProduct('All',this)">All</button>
+        <button class="product-tab" onclick="setProduct('Advocacy',this)">Advocacy</button>
+        <button class="product-tab" onclick="setProduct('References',this)">References</button>
+        <button class="product-tab" onclick="setProduct('Community',this)">Community</button>
+      </div>
+      <div class="type-chips">
+        <button class="chip" data-tag="All" onclick="setFilter('All',this)">All types</button>
+        <button class="chip active" data-tag="New Feature" onclick="setFilter('New Feature',this)">New Feature</button>
+        <button class="chip" data-tag="Improvement" onclick="setFilter('Improvement',this)">Improvement</button>
+        <button class="chip" data-tag="Bug Fix" onclick="setFilter('Bug Fix',this)">Bug Fix</button>
+        <button class="chip" data-tag="Integration" onclick="setFilter('Integration',this)">Integration</button>
+        <button class="chip" data-tag="Announcement" onclick="setFilter('Announcement',this)">Announcement</button>
+      </div>
     </div>
     <div class="timeline" id="timeline"><div class="loading"><div class="spinner"></div>Loading updates…</div></div>
     <div class="overlay" id="overlay-login" style="display:none;" onclick="if(event.target===this)hideAdminLogin()">
@@ -332,9 +354,10 @@ function buildApp(){
         <div class="modal-body">
           <div class="field"><label>Title</label><input id="f-title" placeholder="e.g. Reference Management Kanban View"></div>
           <div class="field-row">
-            <div class="field"><label>Tag</label><select id="f-tag"><option>New Feature</option><option>Improvement</option><option>Bug Fix</option><option>Integration</option><option>Announcement</option></select></div>
-            <div class="field"><label>Date</label><input type="date" id="f-date"></div>
+            <div class="field"><label>Product</label><select id="f-product"><option>Advocacy</option><option>References</option><option>Community</option></select></div>
+            <div class="field"><label>Type</label><select id="f-tag"><option>New Feature</option><option>Improvement</option><option>Bug Fix</option><option>Integration</option><option>Announcement</option></select></div>
           </div>
+          <div class="field"><label>Date</label><input type="date" id="f-date"></div>
           <div class="field"><label>Description</label><textarea id="f-desc" placeholder="What shipped? What does it do? Why does it matter?"></textarea></div>
           <div class="field">
             <label>Media (image or video)</label>
@@ -346,7 +369,7 @@ function buildApp(){
       </div>
     </div>`;
 }
-async function boot(){db=initDB();buildApp();entries=await fetchEntries();applyFilter('All');renderTimeline();if(ADMIN_REQUESTED)showAdminLogin();}
+async function boot(){db=initDB();buildApp();entries=await fetchEntries();applyFilters();renderTimeline();if(ADMIN_REQUESTED)showAdminLogin();}
 boot();
 </script>
 </body>
