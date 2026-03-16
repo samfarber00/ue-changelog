@@ -66,13 +66,14 @@ Ticket description: ${(description || 'No description provided.').slice(0, 2000)
 Reply with only valid JSON. No markdown, no code blocks.`
     }],
   });
-  const text = msg.content?.[0]?.text?.trim() || '';
-  console.log('Anthropic response:', text.slice(0, 200));
+  const raw = msg.content?.[0]?.text?.trim() || '';
+  console.log('Anthropic response:', raw.slice(0, 300));
+  // Strip markdown code blocks if present
+  const text = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim();
   try {
     return JSON.parse(text);
   } catch {
-    // JSON parse failed - extract what we can
-    console.log('JSON parse failed, raw:', text.slice(0, 100));
+    console.log('JSON parse failed, raw:', raw.slice(0, 200));
     return null;
   }
 }
