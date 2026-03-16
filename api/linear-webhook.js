@@ -41,40 +41,50 @@ function cleanTitle(title) {
   return title.replace(/^\[.*?\]\s*/g, '').trim();
 }
 
-async function rewriteDescription(title, description) {
+async function analyzeTicket(title, description) {
   const client = new Anthropic({ apiKey: ANTHROPIC_KEY });
   const msg = await client.messages.create({
     model: 'claude-3-5-sonnet-20241022',
-    max_tokens: 200,
+    max_tokens: 300,
     messages: [{
       role: 'user',
-      content: `You are writing a product changelog entry for UserEvidence, a B2B customer evidence and advocacy platform.
+      content: `You are categorizing a completed software ticket for UserEvidence's product changelog.
 
-A software ticket has just been completed. Write a 1-2 sentence customer-facing description of what shipped.
+UserEvidence has three product areas:
+- Advocacy: advocate hub, missions, badges, rewards, leaderboards, events, email triggers, advocate profiles
+- References: reference matching, case studies, testimonials, reviews, reference requests, ROI
+- Community: community forum, member directory, posts, channels, discussions, announcements
 
-Rules:
-- Plain prose only, no markdown, no bullet points
-- Focus on the customer benefit, not technical details
-- Do not start with "We"
-- Tone: clear, confident, professional
+Analyze this ticket and return JSON with exactly these fields:
+- "description": 1-2 sentence customer-facing description (plain prose, no markdown, no "We", focus on benefit)
+- "product": one of "Advocacy", "References", "Community" (pick the best fit)
+- "tag": one of "New Feature", "Improvement", "Bug Fix", "Integration", "Announcement"
 
 Ticket title: ${title}
 Ticket description: ${(description || 'No description provided.').slice(0, 2000)}
 
-Reply with only the description text. Nothing else.`
+Reply with only valid JSON. No markdown, no code blocks.`
     }],
   });
-  const text = msg.content?.[0]?.text?.trim();
-  console.log('Anthropic rewrite:', text?.slice(0, 100));
-  return text || null;
+  const text = msg.content?.[0]?.text?.trim() || '';
+  console.log('Anthropic response:', text.slice(0, 200));
+  try {
+    return JSON.parse(text);
+  } catch {
+    // JSON parse failed - extract what we can
+    console.log('JSON parse failed, raw:', text.slice(0, 100));
+    return null;
+  }
 }
 
-async function rewriteForCustomers(title, description) {
+async function rewriteForCustomers(title, description, fallbackTag) {
   const cleanedTitle = cleanTitle(title);
-  const rewrittenDesc = await rewriteDescription(title, description);
+  const result = await analyzeTicket(title, description);
   return {
     title: cleanedTitle,
-    description: rewrittenDesc || description || '',
+    description: result?.description || description || '',
+    product: result?.product || 'Advocacy',
+    tag: result?.tag || fallbackTag || 'New Feature',
   };
 }
 
@@ -92,10 +102,11 @@ module.exports = async function handler(req, res) {
     const db = createClient(SUPABASE_URL, SUPABASE_KEY);
     const { data: existing } = await db.from('changelog').select('id').eq('linear_id', issue.id).single();
     if (existing) return res.status(200).json({ ok: true, skipped: 'draft already exists' });
-    const tag = pickTag(labels);
-    const rewritten = await rewriteForCustomers(issue.title, issue.description);
+    const fallbackTag = pickTag(labels);
+    const rewritten = await rewriteForCustomers(issue.title, issue.description, fallbackTag);
     const { error } = await db.from('changelog').insert({
-      title: rewritten.title, tag, date: new Date().toISOString().slice(0, 10),
+      title: rewritten.title, tag: rewritten.tag, product: rewritten.product,
+      date: new Date().toISOString().slice(0, 10),
       description: rewritten.description, media_url: null, media_type: null,
       status: 'draft', linear_id: issue.id, linear_url: issue.url,
     });
