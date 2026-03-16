@@ -48,17 +48,21 @@ async function analyzeTicket(title, description) {
     max_tokens: 300,
     messages: [{
       role: 'user',
-      content: `You are categorizing a completed software ticket for UserEvidence's product changelog.
+      content: `You are writing a changelog entry for UserEvidence, a B2B SaaS product.
 
 UserEvidence has three product areas:
 - Advocacy: advocate hub, missions, badges, rewards, leaderboards, events, email triggers, advocate profiles
 - References: reference matching, case studies, testimonials, reviews, reference requests, ROI
 - Community: community forum, member directory, posts, channels, discussions, announcements
 
-Analyze this ticket and return JSON with exactly these fields:
-- "description": 1-2 sentence customer-facing description (plain prose, no markdown, no "We", focus on benefit)
+Given the Linear ticket below, return JSON with exactly these fields:
+- "title": 3-6 plain words describing what changed. No buzzwords, no jargon, no gerunds like "introducing" or "enabling." Just say what it is.
+- "description": 1-2 sentences max. Start with the problem it solved, then say what you can do now. Write at a 5th grade reading level. Be specific and concrete. No fluff.
 - "product": one of "Advocacy", "References", "Community" (pick the best fit)
 - "tag": one of "New Feature", "Improvement", "Bug Fix", "Integration", "Announcement"
+
+Example output:
+{"title":"CC multiple people on reference emails","description":"You used to have to pick one person to send reference outreach to. Now you can add your AE and CSM at the same time.","product":"References","tag":"Improvement"}
 
 Ticket title: ${title}
 Ticket description: ${(description || 'No description provided.').slice(0, 2000)}
@@ -87,7 +91,7 @@ async function rewriteForCustomers(title, description, fallbackTag) {
     console.error('AI rewrite failed, using fallback:', err.message);
   }
   return {
-    title: cleanedTitle,
+    title: result?.title || cleanedTitle,
     description: result?.description || description || '',
     product: result?.product || 'Advocacy',
     tag: result?.tag || fallbackTag || 'New Feature',
