@@ -99,6 +99,12 @@
   .tag-pill { display: inline-flex; align-items: center; padding: 3px 10px; border-radius: 100px; font-size: 11px; font-weight: 700; letter-spacing: 0.04em; white-space: nowrap; flex-shrink: 0; }
   .card-desc { font-size: 14px; color: var(--gray-500); line-height: 1.7; font-family: 'Inter', sans-serif; }
   .card-actions { display: flex; gap: 8px; margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--gray-100); }
+  .built-by { display: flex; align-items: center; gap: 10px; margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--gray-100); }
+  .built-by-label { font-size: 12px; color: var(--gray-400); font-family: 'Inter', sans-serif; white-space: nowrap; }
+  .built-by-chips { display: flex; gap: 6px; flex-wrap: wrap; }
+  .built-by-chip { display: inline-flex; align-items: center; gap: 6px; background: var(--gray-100); border-radius: 100px; padding: 3px 10px 3px 4px; font-size: 12px; font-weight: 600; color: var(--gray-700); }
+  .built-by-avatar { width: 22px; height: 22px; border-radius: 50%; object-fit: cover; }
+  .built-by-initials { width: 22px; height: 22px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 9px; font-weight: 700; color: white; flex-shrink: 0; }
   .overlay { position: fixed; inset: 0; z-index: 300; background: rgba(0,0,0,0.4); display: flex; align-items: center; justify-content: center; padding: 20px; backdrop-filter: blur(2px); }
   .modal { background: white; border-radius: 16px; width: 100%; max-width: 560px; max-height: 92vh; overflow-y: auto; box-shadow: 0 20px 60px rgba(0,0,0,0.15); }
   .modal-head { display: flex; align-items: center; justify-content: space-between; padding: 22px 24px 0; position: sticky; top: 0; background: white; z-index: 1; }
@@ -159,6 +165,19 @@ const ADMIN_REQUESTED = new URLSearchParams(window.location.search).get('admin')
 function initDB() { return supabase.createClient(CONFIG.supabaseUrl, CONFIG.supabaseKey); }
 const TAGS = { 'New Feature':{bg:'#EDE9FE',fg:'#5B21B6'}, 'Improvement':{bg:'#D1FAE5',fg:'#065F46'}, 'Bug Fix':{bg:'#FEE2E2',fg:'#991B1B'}, 'Integration':{bg:'#FEF3C7',fg:'#92400E'}, 'Announcement':{bg:'#DBEAFE',fg:'#1E40AF'} };
 function tagStyle(t) { const s=TAGS[t]||{bg:'#F3F4F6',fg:'#374151'}; return `background:${s.bg};color:${s.fg};`; }
+const AVATAR_COLORS = ['#7C3AED','#10B981','#3B82F6','#F59E0B','#EF4444','#8B5CF6','#06B6D4'];
+function avatarColor(name) { let h=0; for(let i=0;i<name.length;i++) h=(h*31+name.charCodeAt(i))%AVATAR_COLORS.length; return AVATAR_COLORS[h]; }
+function initials(name) { return name.split(' ').filter(Boolean).map(w=>w[0]).join('').slice(0,2).toUpperCase(); }
+function renderBuiltBy(builtBy) {
+  if (!builtBy || !builtBy.length) return '';
+  const chips = builtBy.map(p => {
+    const avatar = p.avatar
+      ? `<img class="built-by-avatar" src="${p.avatar}" alt="${p.name}" onerror="this.outerHTML='<span class=\\'built-by-initials\\' style=\\'background:${avatarColor(p.name)}\\'>${initials(p.name)}</span>'">`
+      : `<span class="built-by-initials" style="background:${avatarColor(p.name)}">${initials(p.name)}</span>`;
+    return `<span class="built-by-chip">${avatar}${p.name}</span>`;
+  }).join('');
+  return `<div class="built-by"><span class="built-by-label">Built with love by</span><div class="built-by-chips">${chips}</div></div>`;
+}
 function fmtDate(str) { return new Date(str+'T00:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}); }
 function getYear(str) { return str?str.slice(0,4):''; }
 
@@ -261,7 +280,8 @@ function renderEntry(e) {
   const media=e.media_url?`<div class="card-media">${(e.media_type||'').startsWith('video')?`<video src="${e.media_url}" controls muted playsinline></video>`:`<img src="${e.media_url}" alt="${e.title}" loading="lazy">`}</div>`:'';
   const actions=IS_ADMIN?`<div class="card-actions"><button class="btn btn-ghost" style="font-size:12px;padding:5px 14px;" onclick="openEdit(${e.id})">Edit</button><button class="btn btn-danger" onclick="confirmDelete(${e.id})">Delete</button></div>`:'';
   const productPill = e.product ? `<span class="tag-pill" style="background:var(--gray-100);color:var(--gray-500);margin-right:6px;">${e.product}</span>` : '';
-  return `<div class="entry"><div class="entry-meta"><div class="entry-date">${fmtDate(e.date)}</div></div><div class="card"><div class="card-body"><div class="card-top"><div class="card-title">${e.title}</div><div style="display:flex;align-items:center;flex-shrink:0;">${productPill}<span class="tag-pill" style="${tagStyle(e.tag)}">${e.tag}</span></div></div><div class="card-desc">${e.description||''}</div>${actions}</div>${media}</div></div>`;
+  const builtByHtml = renderBuiltBy(e.built_by);
+  return `<div class="entry"><div class="entry-meta"><div class="entry-date">${fmtDate(e.date)}</div></div><div class="card"><div class="card-body"><div class="card-top"><div class="card-title">${e.title}</div><div style="display:flex;align-items:center;flex-shrink:0;">${productPill}<span class="tag-pill" style="${tagStyle(e.tag)}">${e.tag}</span></div></div><div class="card-desc">${e.description||''}</div>${builtByHtml}${actions}</div>${media}</div></div>`;
 }
 function renderTimeline() {
   const tl=document.getElementById('timeline'); if(!tl) return;

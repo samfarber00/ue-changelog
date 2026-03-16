@@ -141,11 +141,14 @@ module.exports = async function handler(req, res) {
       rewriteForCustomers(issue.title, issue.description, fallbackTag),
       extractAndUploadImage(issue.description, issue.id, db),
     ]);
+    const assignee = issue.assignee;
+    const builtBy = assignee ? [{ name: assignee.name, avatar: assignee.avatarUrl || null }] : null;
     const { error } = await db.from('changelog').insert({
       title: rewritten.title, tag: rewritten.tag, product: rewritten.product,
       date: new Date().toISOString().slice(0, 10),
       description: rewritten.description,
       media_url: mediaUrl, media_type: mediaUrl ? 'image' : null,
+      built_by: builtBy,
       status: 'draft', linear_id: issue.id, linear_url: issue.url,
     });
     if (error) { console.error('Supabase insert error:', error); return res.status(500).json({ error: error.message }); }
