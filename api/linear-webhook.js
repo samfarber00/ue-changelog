@@ -141,8 +141,10 @@ module.exports = async function handler(req, res) {
       rewriteForCustomers(issue.title, issue.description, fallbackTag),
       extractAndUploadImage(issue.description, issue.id, db),
     ]);
-    const assignee = issue.assignee;
-    const builtBy = assignee ? [{ name: assignee.name, avatar: assignee.avatarUrl || null }] : null;
+    const people = [];
+    if (issue.assignee?.name) people.push({ name: issue.assignee.name, avatar: issue.assignee.avatarUrl || null });
+    if (issue.creator?.name && issue.creator.name !== issue.assignee?.name) people.push({ name: issue.creator.name, avatar: issue.creator.avatarUrl || null });
+    const builtBy = people.length ? people : null;
     const { error } = await db.from('changelog').insert({
       title: rewritten.title, tag: rewritten.tag, product: rewritten.product,
       date: new Date().toISOString().slice(0, 10),
