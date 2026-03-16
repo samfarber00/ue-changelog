@@ -66,8 +66,11 @@ Reply with only the description text. Nothing else.`;
     }),
   });
   const data = await res.json();
-  console.log('Anthropic status:', res.status, '| response:', JSON.stringify(data).slice(0, 300));
-  return data?.content?.[0]?.text?.trim() || null;
+  const errorMsg = `[AI status:${res.status} err:${data?.error?.message || data?.error?.type || 'none'} type:${data?.type}]`;
+  console.log('Anthropic:', errorMsg);
+  const text = data?.content?.[0]?.text?.trim();
+  if (!text) return errorMsg; // surface error in draft so we can see it
+  return text;
 }
 
 async function rewriteForCustomers(title, description) {
