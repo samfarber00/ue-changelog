@@ -834,47 +834,91 @@ function renderBoard() {
 }
 
 function renderGantt() {
-  const today = new Date('2026-03-20');
+  const today = new Date();
   const windowStart = new Date(today.getFullYear(), today.getMonth() - 1, 1);
   const windowEnd   = new Date(today.getFullYear(), today.getMonth() + 7, 0);
   const totalDays   = (windowEnd - windowStart) / 86400000;
-  const todayPct    = ((today - windowStart) / 86400000 / totalDays * 100).toFixed(2);
+  const todayPct    = Math.min(100, Math.max(0, ((today - windowStart) / 86400000 / totalDays * 100))).toFixed(2);
 
   const months = [];
   const cur = new Date(windowStart);
   while (cur <= windowEnd) {
     const ms = new Date(cur); cur.setMonth(cur.getMonth() + 1);
-    const days = (new Date(Math.min(cur, windowEnd)) - ms) / 86400000;
+    const days = (new Date(Math.min(+cur, +windowEnd)) - ms) / 86400000;
     months.push({ label: ms.toLocaleDateString('en-US',{month:'short',year:'2-digit'}), pct: (days/totalDays*100).toFixed(2) });
   }
 
   const COLORS = { 'In Progress': '#10B981', 'Planned': '#7C3AED', 'Coming Soon': '#3B82F6' };
-  const MONTHS = { 'Jan 2026':0,'Feb 2026':1,'Mar 2026':2,'Apr 2026':3,'May 2026':4,'Jun 2026':5,'Jul 2026':6,'Aug 2026':7,'Sep 2026':8 };
+  const STATUS_GROUPS = [
+    { key: 'In Progress', dot: '#10B981' },
+    { key: 'Planned',     dot: '#7C3AED' },
+    { key: 'Coming Soon', dot: '#3B82F6' },
+  ];
 
-  function ganttRow(p, status) {
-    const color = COLORS[status];
-    if (!p.target) return `<div class="gantt-row">
-      <div class="gantt-label"><div class="gantt-label-name">${p.name}</div><div class="gantt-label-sub">${status}</div></div>
+  function parseTargetDate(str) {
+    if (!str) return null;
+    const months = { Jan:0,Feb:1,Mar:2,Apr:3,May:4,Jun:5,Jul:6,Aug:7,Sep:8,Oct:9,Nov:10,Dec:11 };
+    const parts = str.split(' ');
+    // "Mar 2026" or "March 31, 2026" or "April 15, 2026"
+    const monthNames = { January:0,February:1,March:2,April:3,May:4,June:5,July:6,August:7,September:8,October:9,November:10,December:11 };
+    for (const [name, idx] of Object.entries({...months,...monthNames})) {
+      if (str.includes(name)) {
+        const yearMatch = str.match(/\d{4}/);
+        const dayMatch = str.match(/(\d{1,2})[,\s]/);
+        const year = yearMatch ? parseInt(yearMatch[0]) : today.getFullYear();
+        const day = dayMatch ? parseInt(dayMatch[1]) : 0;
+        return day ? new Date(year, idx, day) : new Date(year, idx + 1, 0);
+      }
+    }
+    return null;
+  }
+
+  function ganttRow(p) {
+    const color = COLORS[p.status] || '#6B7280';
+    const barEnd = parseTargetDate(p.target || p.start_date);
+    const barStart = p.start_date && p.start_date !== p.target ? (parseTargetDate(p.start_date) || new Date(Math.max(+windowStart, barEnd ? barEnd.getTime() - 45*86400000 : 0))) : new Date(Math.max(+windowStart, barEnd ? barEnd.getTime() - 45*86400000 : 0));
+
+    if (!barEnd) return `<div class="gantt-row gantt-row-nodate">
+      <div class="gantt-label"><div class="gantt-label-name">${p.name}</div></div>
       <div class="gantt-no-date"><span class="gantt-no-date-label">No date set</span></div>
     </div>`;
-    const targetMonth = Object.keys(MONTHS).find(k => p.target.includes(k.split(' ')[0]) && p.target.includes(k.split(' ')[1]));
-    const barEnd = targetMonth ? new Date(2026, MONTHS[targetMonth]+1, 0) : new Date(today.getTime() + 60*86400000);
-    const barStart = new Date(Math.max(windowStart, barEnd.getTime() - 45*86400000));
-    const left = ((barStart - windowStart)/86400000/totalDays*100).toFixed(2);
-    const width = ((Math.min(barEnd,windowEnd) - barStart)/86400000/totalDays*100).toFixed(2);
+
+    const left = Math.max(0, ((barStart - windowStart)/86400000/totalDays*100)).toFixed(2);
+    const width = Math.max(1, ((Math.min(barEnd,windowEnd) - Math.max(barStart,windowStart))/86400000/totalDays*100)).toFixed(2);
+    const label = parseFloat(width) > 8 ? (p.target || '') : '';
     return `<div class="gantt-row">
-      <div class="gantt-label"><div class="gantt-label-name">${p.name}</div><div class="gantt-label-sub">${status}</div></div>
+      <div class="gantt-label"><div class="gantt-label-name">${p.name}</div></div>
       <div class="gantt-track">
         <div class="gantt-today-line" style="left:${todayPct}%;"></div>
-        <div class="gantt-bar" style="left:${left}%;width:${width}%;background:${color};" title="${p.name}">${parseFloat(width)>10?'→ '+p.target:''}</div>
+        <div class="gantt-bar" style="left:${left}%;width:${width}%;background:${color};" title="${p.name} — ${p.target||''}">${label}</div>
       </div>
     </div>`;
   }
 
-  const header = `<div style="display:flex;margin-left:240px;border-bottom:1.5px solid var(--gray-200);margin-bottom:12px;">${months.map(m=>`<div class="gantt-month" style="width:${m.pct}%;flex-shrink:0;">${m.label}</div>`).join('')}</div>`;
-  const items = roadmapItems || [];
-  const rows = items.map(p => ganttRow(p, p.status)).join('');
-  document.getElementById('roadmap-content').innerHTML = `<div class="gantt-wrap">${header}${rows}</div>`;
+  const LABEL_LEFT = 220;
+  const header = `<div style="display:flex;margin-left:${LABEL_LEFT}px;border-bottom:1.5px solid var(--gray-200);margin-bottom:16px;">
+    ${months.map(m=>`<div class="gantt-month" style="width:${m.pct}%;flex-shrink:0;">${m.label}</div>`).join('')}
+  </div>`;
+
+  const allItems = roadmapItems || [];
+  let html = '';
+  STATUS_GROUPS.forEach(group => {
+    const groupItems = allItems.filter(p => p.status === group.key && (p.item_type || 'project') === 'project');
+    if (!groupItems.length) return;
+    const dated   = groupItems.filter(p => p.target || p.start_date).sort((a,b) => (+parseTargetDate(a.target)) - (+parseTargetDate(b.target)));
+    const undated = groupItems.filter(p => !p.target && !p.start_date);
+
+    html += `<div style="display:flex;align-items:center;gap:8px;margin:18px 0 10px;padding-bottom:6px;border-bottom:1.5px solid var(--gray-100);">
+      <span style="width:8px;height:8px;border-radius:50%;background:${group.dot};flex-shrink:0;display:inline-block;"></span>
+      <span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;color:${group.dot};">${group.key}</span>
+    </div>`;
+    html += dated.map(p => ganttRow(p)).join('');
+    if (undated.length) {
+      html += `<div style="margin-top:6px;">${undated.map(p => ganttRow(p)).join('')}</div>`;
+    }
+  });
+
+  document.getElementById('roadmap-content').innerHTML = `<div class="gantt-wrap" style="--gantt-label:${LABEL_LEFT}px">${header}${html}</div>`;
 }
 
 // ── ROADMAP CRUD ────────────────────────────────────────────────────────
