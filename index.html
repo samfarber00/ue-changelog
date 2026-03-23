@@ -561,22 +561,15 @@ function buildApp(){
       </div>
       <div class="roadmap-wrap">
         <div class="roadmap-toolbar">
-          <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
-            <div class="view-toggle">
-              <button class="view-toggle-btn active" id="btn-board" onclick="setRoadmapView('board')">
-                <svg width="14" height="14" fill="none" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="18" rx="2" stroke="currentColor" stroke-width="2"/><rect x="14" y="3" width="7" height="11" rx="2" stroke="currentColor" stroke-width="2"/></svg>
-                Board
-              </button>
-              <button class="view-toggle-btn" id="btn-timeline" onclick="setRoadmapView('timeline')">
-                <svg width="14" height="14" fill="none" viewBox="0 0 24 24"><path d="M3 6h18M3 12h12M3 18h8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-                Timeline
-              </button>
-            </div>
-            <div class="view-toggle">
-              <button class="view-toggle-btn active" id="btn-filter-all" onclick="setRoadmapFilter('all')">All</button>
-              <button class="view-toggle-btn" id="btn-filter-project" onclick="setRoadmapFilter('project')">Projects</button>
-              <button class="view-toggle-btn" id="btn-filter-feature" onclick="setRoadmapFilter('feature')">Features</button>
-            </div>
+          <div class="view-toggle">
+            <button class="view-toggle-btn active" id="btn-board" onclick="setRoadmapView('board')">
+              <svg width="14" height="14" fill="none" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="18" rx="2" stroke="currentColor" stroke-width="2"/><rect x="14" y="3" width="7" height="11" rx="2" stroke="currentColor" stroke-width="2"/></svg>
+              Board
+            </button>
+            <button class="view-toggle-btn" id="btn-timeline" onclick="setRoadmapView('timeline')">
+              <svg width="14" height="14" fill="none" viewBox="0 0 24 24"><path d="M3 6h18M3 12h12M3 18h8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+              Timeline
+            </button>
           </div>
           <div id="rm-toolbar-admin"></div>
         </div>
