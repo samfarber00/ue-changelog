@@ -189,6 +189,11 @@
   .rm-feature-target { font-size: 11px; color: var(--gray-400); font-family: 'Inter', sans-serif; white-space: nowrap; }
   .rm-feature-actions { display: flex; gap: 4px; opacity: 0; transition: opacity 0.15s; }
   .rm-feature-row:hover .rm-feature-actions { opacity: 1; }
+  .rm-scope-toggle { font-family: 'Sora', sans-serif; background: none; border: none; cursor: pointer; font-size: 11px; font-weight: 600; color: var(--purple); padding: 0; margin-top: 8px; display: block; }
+  .rm-scope-toggle:hover { text-decoration: underline; }
+  .rm-scope-list { margin: 8px 0 4px 4px; padding: 0; list-style: none; }
+  .rm-scope-list li { font-size: 12px; color: var(--gray-500); font-family: 'Inter', sans-serif; line-height: 1.55; padding: 2px 0 2px 12px; position: relative; }
+  .rm-scope-list li::before { content: '·'; position: absolute; left: 2px; color: var(--gray-400); font-weight: 700; }
   /* GANTT */
   .gantt-wrap { overflow-x: auto; padding-bottom: 8px; }
   .gantt-header-months { display: flex; border-bottom: 1.5px solid var(--gray-200); margin-bottom: 12px; margin-left: 240px; }
@@ -624,6 +629,7 @@ function buildApp(){
             <div class="field"><label>Start <span style="font-weight:400;color:var(--gray-400)">(optional)</span></label><input id="rm-start" placeholder="e.g. Mar 2026"></div>
             <div class="field"><label>Target / End <span style="font-weight:400;color:var(--gray-400)">(optional)</span></label><input id="rm-target" placeholder="e.g. May 2026"></div>
           </div>
+          <div class="field" id="rm-scope-row"><label>Scope items <span style="font-weight:400;color:var(--gray-400)">(one per line)</span></label><textarea id="rm-scope" placeholder="Ranked advocate selection with drag-to-reorder&#10;Waterfall activation API&#10;Kanban status tracking" style="min-height:90px;"></textarea></div>
           <div class="modal-foot"><button class="btn-cancel" onclick="closeRmModal()">Cancel</button><button class="btn btn-primary" id="rm-save-btn" onclick="saveRmItem()">Add Item</button></div>
         </div>
       </div>
@@ -752,6 +758,10 @@ function rmProjectCard(p) {
     : p.target ? `<span class="rm-dates">→ ${p.target}</span>`
     : p.start_date ? `<span class="rm-dates">${p.start_date} →</span>` : '';
   const desc = p.description || p.desc || '';
+  const scope = Array.isArray(p.scope_items) ? p.scope_items : [];
+  const scopeHtml = scope.length ? `
+    <button class="rm-scope-toggle" onclick="toggleRmScope(this)">▸ ${scope.length} item${scope.length !== 1 ? 's' : ''} in scope</button>
+    <ul class="rm-scope-list" style="display:none;">${scope.map(s => `<li>${s}</li>`).join('')}</ul>` : '';
   const adminBtns = IS_ADMIN && typeof p.id === 'number' ? `<div style="display:flex;gap:6px;margin-top:10px;">
     <button class="btn btn-ghost" style="font-size:11px;padding:4px 10px;" onclick="openRmEdit(${p.id})">Edit</button>
     <button class="btn btn-danger" style="font-size:11px;padding:4px 10px;" onclick="confirmDeleteRmItem(${p.id})">Delete</button>
@@ -759,9 +769,18 @@ function rmProjectCard(p) {
   return `<div class="rm-card">
     <div class="rm-card-name">${p.name}</div>
     ${desc ? `<div class="rm-card-summary">${desc}</div>` : ''}
-    <div class="rm-card-footer">${target}</div>
+    ${scopeHtml}
+    <div class="rm-card-footer" style="margin-top:8px;">${target}</div>
     ${adminBtns}
   </div>`;
+}
+
+function toggleRmScope(btn) {
+  const list = btn.nextElementSibling;
+  const open = list.style.display !== 'none';
+  list.style.display = open ? 'none' : 'block';
+  const count = list.querySelectorAll('li').length;
+  btn.textContent = (open ? '▸ ' : '▾ ') + count + ' item' + (count !== 1 ? 's' : '') + ' in scope';
 }
 
 function rmFeatureRow(p) {
@@ -860,7 +879,9 @@ function renderGantt() {
 
 // ── ROADMAP CRUD ────────────────────────────────────────────────────────
 function toggleRmDateRow(type) {
-  document.getElementById('rm-date-row').style.display = type === 'project' ? '' : 'none';
+  const isProject = type === 'project';
+  document.getElementById('rm-date-row').style.display = isProject ? '' : 'none';
+  document.getElementById('rm-scope-row').style.display = isProject ? '' : 'none';
 }
 function openRmAdd(status, type) {
   editingRmId = null;
@@ -871,6 +892,7 @@ function openRmAdd(status, type) {
   document.getElementById('rm-status').value = status || 'Planned';
   document.getElementById('rm-start').value = '';
   document.getElementById('rm-target').value = '';
+  document.getElementById('rm-scope').value = '';
   document.getElementById('rm-save-btn').textContent = 'Add Item';
   toggleRmDateRow(type || 'project');
   document.getElementById('overlay-rmitem').style.display = 'flex';
@@ -886,6 +908,7 @@ function openRmEdit(id) {
   document.getElementById('rm-status').value = item.status;
   document.getElementById('rm-start').value = item.start_date || '';
   document.getElementById('rm-target').value = item.target || '';
+  document.getElementById('rm-scope').value = (Array.isArray(item.scope_items) ? item.scope_items : []).join('\n');
   document.getElementById('rm-save-btn').textContent = 'Save Changes';
   toggleRmDateRow(item.item_type || 'project');
   document.getElementById('overlay-rmitem').style.display = 'flex';
@@ -898,9 +921,10 @@ async function saveRmItem() {
   const status = document.getElementById('rm-status').value;
   const start_date = document.getElementById('rm-start').value.trim();
   const target = document.getElementById('rm-target').value.trim();
+  const scope_items = document.getElementById('rm-scope').value.split('\n').map(s => s.trim()).filter(Boolean);
   if (!name) { showToast('Name is required', 'error'); return; }
   const btn = document.getElementById('rm-save-btn'); btn.disabled = true; btn.textContent = 'Saving…';
-  const payload = { name, description: description || null, item_type, status, start_date: start_date || null, target: target || null };
+  const payload = { name, description: description || null, item_type, status, start_date: start_date || null, target: target || null, scope_items };
   if (editingRmId) payload.id = editingRmId;
   const ok = await upsertRoadmapItem(payload);
   btn.disabled = false; btn.textContent = editingRmId ? 'Save Changes' : 'Add Item';
