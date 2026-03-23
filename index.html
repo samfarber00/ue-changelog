@@ -557,15 +557,22 @@ function buildApp(){
       </div>
       <div class="roadmap-wrap">
         <div class="roadmap-toolbar">
-          <div class="view-toggle">
-            <button class="view-toggle-btn active" id="btn-board" onclick="setRoadmapView('board')">
-              <svg width="14" height="14" fill="none" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="18" rx="2" stroke="currentColor" stroke-width="2"/><rect x="14" y="3" width="7" height="11" rx="2" stroke="currentColor" stroke-width="2"/></svg>
-              Board
-            </button>
-            <button class="view-toggle-btn" id="btn-timeline" onclick="setRoadmapView('timeline')">
-              <svg width="14" height="14" fill="none" viewBox="0 0 24 24"><path d="M3 6h18M3 12h12M3 18h8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-              Timeline
-            </button>
+          <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+            <div class="view-toggle">
+              <button class="view-toggle-btn active" id="btn-board" onclick="setRoadmapView('board')">
+                <svg width="14" height="14" fill="none" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="18" rx="2" stroke="currentColor" stroke-width="2"/><rect x="14" y="3" width="7" height="11" rx="2" stroke="currentColor" stroke-width="2"/></svg>
+                Board
+              </button>
+              <button class="view-toggle-btn" id="btn-timeline" onclick="setRoadmapView('timeline')">
+                <svg width="14" height="14" fill="none" viewBox="0 0 24 24"><path d="M3 6h18M3 12h12M3 18h8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+                Timeline
+              </button>
+            </div>
+            <div class="view-toggle">
+              <button class="view-toggle-btn active" id="btn-filter-all" onclick="setRoadmapFilter('all')">All</button>
+              <button class="view-toggle-btn" id="btn-filter-project" onclick="setRoadmapFilter('project')">Projects</button>
+              <button class="view-toggle-btn" id="btn-filter-feature" onclick="setRoadmapFilter('feature')">Features</button>
+            </div>
           </div>
           <div id="rm-toolbar-admin"></div>
         </div>
@@ -613,10 +620,13 @@ function buildApp(){
           <div class="field"><label>Name</label><input id="rm-name" placeholder="e.g. Smart Segmentation & Targeting"></div>
           <div class="field"><label>Description</label><textarea id="rm-desc" placeholder="What is this and why does it matter?"></textarea></div>
           <div class="field-row">
-            <div class="field"><label>Type</label><select id="rm-type"><option value="project">Project</option><option value="feature">Feature</option></select></div>
+            <div class="field"><label>Type</label><select id="rm-type" onchange="toggleRmDateRow(this.value)"><option value="project">Project</option><option value="feature">Feature</option></select></div>
             <div class="field"><label>Status</label><select id="rm-status"><option>In Progress</option><option>Planned</option><option>Coming Soon</option></select></div>
           </div>
-          <div class="field"><label>Target <span style="font-weight:400;color:var(--gray-400)">(optional)</span></label><input id="rm-target" placeholder="e.g. May 2026"></div>
+          <div class="field-row" id="rm-date-row">
+            <div class="field"><label>Start <span style="font-weight:400;color:var(--gray-400)">(optional)</span></label><input id="rm-start" placeholder="e.g. Mar 2026"></div>
+            <div class="field"><label>Target / End <span style="font-weight:400;color:var(--gray-400)">(optional)</span></label><input id="rm-target" placeholder="e.g. May 2026"></div>
+          </div>
           <div class="modal-foot"><button class="btn-cancel" onclick="closeRmModal()">Cancel</button><button class="btn btn-primary" id="rm-save-btn" onclick="saveRmItem()">Add Item</button></div>
         </div>
       </div>
@@ -681,6 +691,7 @@ async function doDeleteMember(id) {
 
 // ── ROADMAP ────────────────────────────────────────────────────────────
 let currentRoadmapView = 'board';
+let currentRoadmapFilter = 'all';
 let roadmapLoaded = false;
 
 const ROADMAP = {
@@ -723,6 +734,15 @@ function setRoadmapView(view) {
   renderRoadmapContent();
 }
 
+function setRoadmapFilter(filter) {
+  currentRoadmapFilter = filter;
+  ['all','project','feature'].forEach(f => {
+    const btn = document.getElementById(`btn-filter-${f}`);
+    if (btn) btn.classList.toggle('active', filter === f);
+  });
+  renderRoadmapContent();
+}
+
 function renderRoadmapContent() {
   const adminBtn = document.getElementById('rm-toolbar-admin');
   if (adminBtn) adminBtn.innerHTML = IS_ADMIN ? `<div style="display:flex;gap:8px;"><button class="btn btn-ghost" onclick="openRmAdd('Planned','project')">+ Project</button><button class="btn btn-ghost" onclick="openRmAdd('Planned','feature')">+ Feature</button></div>` : '';
@@ -731,7 +751,9 @@ function renderRoadmapContent() {
 }
 
 function rmProjectCard(p) {
-  const target = p.target ? `<span class="rm-dates">→ ${p.target}</span>` : '';
+  const target = p.start_date && p.target ? `<span class="rm-dates">${p.start_date} → ${p.target}</span>`
+    : p.target ? `<span class="rm-dates">→ ${p.target}</span>`
+    : p.start_date ? `<span class="rm-dates">${p.start_date} →</span>` : '';
   const desc = p.description || p.desc || '';
   const adminBtns = IS_ADMIN && typeof p.id === 'number' ? `<div style="display:flex;gap:6px;margin-top:10px;">
     <button class="btn btn-ghost" style="font-size:11px;padding:4px 10px;" onclick="openRmEdit(${p.id})">Edit</button>
@@ -768,8 +790,8 @@ function renderBoard() {
   ];
   document.getElementById('roadmap-content').innerHTML = `<div class="rm-board">${cols.map(col => {
     const colItems = items.filter(p => p.status === col.key);
-    const projects = colItems.filter(p => (p.item_type || 'project') === 'project');
-    const features = colItems.filter(p => p.item_type === 'feature');
+    const projects = currentRoadmapFilter !== 'feature' ? colItems.filter(p => (p.item_type || 'project') === 'project') : [];
+    const features = currentRoadmapFilter !== 'project' ? colItems.filter(p => p.item_type === 'feature') : [];
     const bothPresent = projects.length > 0 && features.length > 0;
 
     const projectsHtml = projects.length ? `
@@ -840,6 +862,9 @@ function renderGantt() {
 }
 
 // ── ROADMAP CRUD ────────────────────────────────────────────────────────
+function toggleRmDateRow(type) {
+  document.getElementById('rm-date-row').style.display = type === 'project' ? '' : 'none';
+}
 function openRmAdd(status, type) {
   editingRmId = null;
   document.getElementById('rmitem-modal-title').textContent = type === 'feature' ? 'Add Feature' : 'Add Project';
@@ -847,8 +872,10 @@ function openRmAdd(status, type) {
   document.getElementById('rm-desc').value = '';
   document.getElementById('rm-type').value = type || 'project';
   document.getElementById('rm-status').value = status || 'Planned';
+  document.getElementById('rm-start').value = '';
   document.getElementById('rm-target').value = '';
   document.getElementById('rm-save-btn').textContent = 'Add Item';
+  toggleRmDateRow(type || 'project');
   document.getElementById('overlay-rmitem').style.display = 'flex';
 }
 function openRmEdit(id) {
@@ -860,8 +887,10 @@ function openRmEdit(id) {
   document.getElementById('rm-desc').value = item.description || '';
   document.getElementById('rm-type').value = item.item_type || 'project';
   document.getElementById('rm-status').value = item.status;
+  document.getElementById('rm-start').value = item.start_date || '';
   document.getElementById('rm-target').value = item.target || '';
   document.getElementById('rm-save-btn').textContent = 'Save Changes';
+  toggleRmDateRow(item.item_type || 'project');
   document.getElementById('overlay-rmitem').style.display = 'flex';
 }
 function closeRmModal() { document.getElementById('overlay-rmitem').style.display = 'none'; }
@@ -870,10 +899,11 @@ async function saveRmItem() {
   const description = document.getElementById('rm-desc').value.trim();
   const item_type = document.getElementById('rm-type').value;
   const status = document.getElementById('rm-status').value;
+  const start_date = document.getElementById('rm-start').value.trim();
   const target = document.getElementById('rm-target').value.trim();
   if (!name) { showToast('Name is required', 'error'); return; }
   const btn = document.getElementById('rm-save-btn'); btn.disabled = true; btn.textContent = 'Saving…';
-  const payload = { name, description: description || null, item_type, status, target: target || null };
+  const payload = { name, description: description || null, item_type, status, start_date: start_date || null, target: target || null };
   if (editingRmId) payload.id = editingRmId;
   const ok = await upsertRoadmapItem(payload);
   btn.disabled = false; btn.textContent = editingRmId ? 'Save Changes' : 'Add Item';
