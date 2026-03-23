@@ -537,7 +537,11 @@ function buildApp(){
         <p>Vote on what matters most to you, or submit your own idea. We read every one.</p>
       </div>
       <div class="roadmap-wrap">
-        <div style="display:flex;justify-content:flex-end;margin-bottom:24px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;">
+          <div class="view-toggle">
+            <button class="view-toggle-btn active" id="btn-sort-votes" onclick="setIdeasSort('votes')">Top Voted</button>
+            <button class="view-toggle-btn" id="btn-sort-newest" onclick="setIdeasSort('newest')">Newest</button>
+          </div>
           <button class="btn btn-ghost" id="btn-submit-idea-top" onclick="openIdeaForm()">+ Submit an idea</button>
         </div>
         <div id="idea-submit-form-top" class="idea-submit-form">
@@ -934,8 +938,16 @@ function getVoterToken() {
   return voterToken;
 }
 
+let currentIdeasSort = 'votes';
+function setIdeasSort(sort) {
+  currentIdeasSort = sort;
+  document.getElementById('btn-sort-votes').classList.toggle('active', sort === 'votes');
+  document.getElementById('btn-sort-newest').classList.toggle('active', sort === 'newest');
+  loadIdeasTop();
+}
 async function loadIdeasTop() {
-  const { data, error } = await db.from('feature_ideas').select('*, idea_comments(count)').order('vote_count', { ascending: false });
+  const orderCol = currentIdeasSort === 'newest' ? 'created_at' : 'vote_count';
+  const { data, error } = await db.from('feature_ideas').select('*, idea_comments(count)').order(orderCol, { ascending: false });
   if (error) { document.getElementById('ideas-list-top').innerHTML = '<p style="color:var(--gray-400);font-size:13px;">Could not load ideas.</p>'; return; }
   renderIdeas(data || [], 'ideas-list-top');
 }
