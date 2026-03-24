@@ -143,13 +143,34 @@
   .toast.success { background: #065F46; }
   .toast.error { background: var(--red-dark); }
   @media (max-width: 700px) {
-    .nav { padding: 0 16px; } .hero { padding: 40px 16px 28px; } .hero h1 { font-size: 30px; }
-    .filters { padding: 20px 16px 16px; } .timeline { padding: 0 16px 80px; }
+    /* Nav */
+    .nav { padding: 0 16px; height: auto; flex-wrap: wrap; gap: 0; }
+    .nav > div:nth-child(2) { order: 3; width: 100%; border-top: 1px solid var(--gray-100); display: flex; justify-content: center; gap: 24px; padding: 10px 0; }
+    .nav > div:last-child { display: none; }
+    /* Hero */
+    .hero { padding: 32px 16px 24px; } .hero h1 { font-size: 28px; }
+    .roadmap-hero { padding: 28px 16px 20px; } .roadmap-hero h1 { font-size: 26px; }
+    /* Changelog */
+    .filter-bar { padding: 16px 16px 12px; } .timeline { padding: 0 16px 80px; }
     .entry { grid-template-columns: 1fr; gap: 6px; } .entry-meta { text-align: left; padding-top: 0; }
-    .admin-topbar { padding: 10px 16px; } .drafts-panel-inner { padding: 20px 16px; }
+    /* Admin */
+    .admin-topbar { padding: 10px 16px; flex-direction: column; align-items: flex-start; }
+    .admin-topbar-actions { flex-wrap: wrap; }
+    .drafts-panel-inner { padding: 20px 16px; }
+    /* Modals */
+    .overlay { padding: 0; align-items: flex-end; }
+    .modal { border-radius: 20px 20px 0 0; max-height: 92vh; }
     .field-row { grid-template-columns: 1fr; }
+    /* Roadmap */
     .rm-board { grid-template-columns: 1fr; } .roadmap-wrap { padding: 0 16px 60px; }
-    .gantt-label { width: 140px; } .gantt-header-months { margin-left: 140px; }
+    .roadmap-toolbar { flex-direction: column; align-items: flex-start; gap: 10px; }
+    .gantt-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    .gantt-label { width: 110px; font-size: 11px; } .gantt-header-months { margin-left: 110px; }
+    /* Ideas */
+    .ideas-toolbar { flex-direction: column; align-items: flex-start; gap: 10px; }
+    .idea-card { padding: 14px 14px; }
+    /* Toast */
+    .toast { bottom: 16px; right: 16px; left: 16px; text-align: center; }
   }
   /* ROADMAP */
   .roadmap-wrap { max-width: 1100px; margin: 0 auto; padding: 0 40px 80px; }
@@ -358,7 +379,7 @@ async function loadAndRenderRoadmap() {
     roadmapItems = [
       ...ROADMAP.inProgress.map((p,i)=>({id:`s${i}`, name:p.name, description:p.desc, status:'In Progress', target:p.target, sort_order:i})),
       ...ROADMAP.planned.map((p,i)=>({id:`sp${i}`, name:p.name, description:p.desc, status:'Planned', target:p.target, sort_order:i})),
-      ...ROADMAP.comingSoon.map((p,i)=>({id:`sc${i}`, name:p.name, description:p.desc, status:'Coming Soon', target:p.target, sort_order:i})),
+      ...ROADMAP.comingSoon.map((p,i)=>({id:`sc${i}`, name:p.name, description:p.desc, status:'Iterating', target:p.target, sort_order:i})),
     ];
   }
   renderRoadmapContent();
@@ -548,7 +569,7 @@ function buildApp(){
         <p>Vote on what matters most to you, or submit your own idea. We read every one.</p>
       </div>
       <div class="roadmap-wrap">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;">
+        <div class="ideas-toolbar" style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;">
           <div class="view-toggle">
             <button class="view-toggle-btn active" id="btn-sort-votes" onclick="setIdeasSort('votes')">Top Voted</button>
             <button class="view-toggle-btn" id="btn-sort-newest" onclick="setIdeasSort('newest')">Newest</button>
@@ -629,7 +650,7 @@ function buildApp(){
           <div class="field"><label>Description</label><textarea id="rm-desc" placeholder="What is this and why does it matter?"></textarea></div>
           <div class="field-row">
             <div class="field"><label>Type</label><select id="rm-type" onchange="toggleRmDateRow(this.value)"><option value="project">Project</option><option value="feature">Feature</option></select></div>
-            <div class="field"><label>Status</label><select id="rm-status"><option>In Progress</option><option>Planned</option><option>Coming Soon</option></select></div>
+            <div class="field"><label>Status</label><select id="rm-status"><option>In Progress</option><option>Planned</option><option>Iterating</option></select></div>
           </div>
           <div class="field-row" id="rm-date-row">
             <div class="field"><label>Start <span style="font-weight:400;color:var(--gray-400)">(optional)</span></label><input id="rm-start" placeholder="e.g. Mar 2026"></div>
@@ -810,7 +831,7 @@ function renderBoard() {
   const cols = [
     { label: 'In Progress', dot: '#10B981', key: 'In Progress' },
     { label: 'Planned',     dot: '#7C3AED', key: 'Planned' },
-    { label: 'Coming Soon', dot: '#3B82F6', key: 'Coming Soon' },
+    { label: 'Iterating', dot: '#3B82F6', key: 'Iterating' },
   ];
   document.getElementById('roadmap-content').innerHTML = `<div class="rm-board">${cols.map(col => {
     const colItems = items.filter(p => p.status === col.key);
@@ -908,11 +929,11 @@ function renderGantt() {
     months.push({ label: ms.toLocaleDateString('en-US',{month:'short',year:'2-digit'}), pct: (days/totalDays*100).toFixed(2) });
   }
 
-  const COLORS = { 'In Progress': '#10B981', 'Planned': '#7C3AED', 'Coming Soon': '#3B82F6' };
+  const COLORS = { 'In Progress': '#10B981', 'Planned': '#7C3AED', 'Iterating': '#3B82F6' };
   const STATUS_GROUPS = [
     { key: 'In Progress', dot: '#10B981' },
     { key: 'Planned',     dot: '#7C3AED' },
-    { key: 'Coming Soon', dot: '#3B82F6' },
+    { key: 'Iterating', dot: '#3B82F6' },
   ];
 
   function parseTargetDate(str) {
